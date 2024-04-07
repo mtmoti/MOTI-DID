@@ -1,0 +1,17 @@
+dist
+build
+node_modules
+package-lock.json
+migrate.sh
+*/dev.js
+executables/*
+namespace/*
+config/*
+taskStateInfoKeypair.json
+localKOIIDB.db
+.env
+.env-local
+taskStateInfoKeypair.json
+linktrees
+test/testdb
+config-task.yml
