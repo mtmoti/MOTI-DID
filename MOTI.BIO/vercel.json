@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://home.moti.bio",
+      "permanent": true
+    }
+  ]
+}

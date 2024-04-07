@@ -1,0 +1,474 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+
+.container {
+  padding: 2rem 1rem;
+  padding-top: 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.llink {
+  color: blue;
+  text-decoration: underline;
+}
+
+p {
+  margin: 0;
+}
+
+
+.chakra-input {
+  height: 3rem !important;
+}
+
+.chakra-input::placeholder, .chakra-textarea::placeholder {
+  color: #A9A9AA !important;
+  font-family: Poppins;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.user-image {
+  min-width: 150px;
+  min-height:150px;
+  max-width: 150px;
+  max-height:150px;
+  /* height: 5rem; */
+  object-fit: cover;
+  border-radius: 50%;
+  /* border: 1.5px solid var(--koii-border-color); */
+  background: var(--koii-profile-bg-color);
+  color: #D9D9D9;
+  padding: 0;
+}
+
+.user-name {
+  font-weight: 500;
+  margin-top: 1rem;
+  /* font-size: 32px; */
+  color: var(--koii-create-topic);
+}
+
+.user-desc {
+  margin-top: 10px;
+  font-weight: 300;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--koii-create-topic);
+  max-width: 700px;
+  width: 100%;
+}
+
+.message-container {
+  height: 70vh;
+  font-size: 30px;
+  display: flex;
+  align-items: center;
+}
+
+.connect-wallet-button {
+  background: transparent;
+  border: 1px solid var(--koii-white);
+  border-radius: 50px;
+  padding: 1.5rem;
+  color: var(--koii-button-white);
+  font-size: 20px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: transform 0.3s ease-in-out, background 0.3s ease-in-out,
+    color 0.3s ease-in-out;
+  min-width: 200px;
+}
+
+.connect-wallet-button:hover {
+  background: var(--koii-mint);
+  color: var(--koii-blue);
+  border-color: transparent;
+}
+
+.public-key {
+  border: 1px solid #a59ad0;
+  border-radius: 50px;
+  padding: 1rem 2rem;
+  font-size: 16px;
+  color: var(--koii-white);
+  display: inline-block;
+  align-self: flex-end;
+  color: #a59ad0;
+  margin-bottom: 1rem;
+}
+
+.auth-user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.connect-container {
+  display: flex;
+  align-items: center;
+  justify-items: center;
+  height: 100%;
+}
+
+.links {
+  margin-top: 22px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-items: center;
+}
+.footer-color {
+  color: var(--koii-footer-color);
+}
+
+.link {
+  display: block;
+  text-align: center;
+  padding: 0.8rem;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 50px;
+  width: 300px;
+  color: #171753;
+  background-color: var(--koii-mint);
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 25px;
+  transition: transform 0.3s ease-in-out, background-color 0.3s ease-in-out,
+    color 0.3s ease-in-out;
+}
+
+.link:hover {
+  background-color: transparent;
+  color: var(--koii-white);
+}
+
+.title {
+  font-size: 16px;
+}
+
+.title-1 {
+  margin: 2rem 0;
+}
+
+.footer {
+  color: var(--koii-white);
+  font-size: 14px;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
+  text-align: center;
+}
+
+.by-koii {
+  text-decoration: none;
+  color: var(--koii-mint);
+}
+.by-koii:hover {
+  text-decoration: underline;
+}
+
+.public-key-input-container {
+  padding-top: 1rem;
+  /* height: 90vh; */
+}
+
+.input-container {
+  display: flex;
+}
+
+.public-key-input {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--koii-white);
+  padding: 1rem;
+  color: var(--koii-white);
+  font-size: 20px;
+  outline: 0;
+  width: 320px;
+  transition: transform 0.3s ease-in-out, border 0.3s ease-in-out;
+}
+
+.public-key-input:hover {
+  border-bottom: 1px solid var(--koii-mint);
+}
+.createLinktree {
+  width: 100vw;
+}
+
+.submit {
+  width: 100px;
+  border-radius: 50px;
+  background: var(--koii-mint);
+  color: var(--koii-blue);
+  font-weight: 600;
+  font-size: 22px;
+  cursor: pointer;
+  margin-left: 10px;
+  transition: transform 0.3s ease-in-out, background 0.3s ease-in-out;
+  border: 1px solid var(--koii-mint);
+}
+
+.submit:hover {
+  border: 1px solid var(--koii-white);
+  background: transparent;
+  color: var(--koii-white);
+}
+
+.text-mint {
+  color: var(--koii-mint);
+}
+
+.error {
+  font-size: 14px;
+  color: rgb(247, 104, 104);
+  text-align: left;
+  margin-top: 10px;
+}
+
+.input-border {
+  border-color: var(--koii-border-color) !important;
+  background: var(--koii-input-bg-color) !important;
+  height: 40px;
+}
+
+.input-border:-webkit-autofill,
+.input-border:-webkit-autofill:hover,
+.input-border:-webkit-autofill:focus,
+.input-border:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--koii-create-text) !important;
+  transition: all 5000s ease-in-out 0s;
+  transition-property: var(--koii-input-bg-color), color;
+}
+
+.custom-file-upload {
+  background: var(--koii-button-upload-bg);
+  padding: 12px 20px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
+  gap: 4px;
+  color: var(--koii-button-upload);
+  cursor: pointer;
+}
+
+.input-container {
+  width: 100%;
+  background: transparent;
+  border-width: 0.75px;
+  border-radius: 8px;
+  padding: 0 16px;
+  border-color: var(--chakra-colors-chakra-border-color);
+}
+.displayLink {
+  text-decoration: none;
+  color: var(--koii-mint);
+}
+
+.displayLink:hover {
+  text-decoration: underline;
+}
+
+.total {
+  padding: 3px;
+  border: 2px solid var(--koii-white);
+}
+
+@media screen and (max-width: 600px) {
+  .links {
+    width: 100%;
+  }
+  .user-desc {
+    width: 80%;
+  }
+  .message-container {
+    font-size: 16px;
+  }
+  .public-key {
+    margin-bottom: 3rem;
+  }
+
+  .createLinktree {
+    width: 100vw;
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .link {
+    width: 100%;
+  }
+  .public-key-input {
+    width: 240px;
+    padding: 0.7rem;
+  }
+  .public-key-input-container h1 {
+    font-size: 20px;
+  }
+  .submit {
+    width: 80px;
+  }
+}
+
+@media screen and (max-width: 375px) {
+  .public-key-input {
+    width: 200px;
+    padding: 0.7rem;
+  }
+
+  .submit {
+    width: 60px;
+  }
+}
+
+@media screen and (max-width: 920px) {
+  .links,
+  .user-desc {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 630px) {
+  .links,
+  .user-desc {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 550px) {
+  .links,
+  .user-desc {
+    width: 80%;
+  }
+}
+
+.card {
+  transition: transform 0.3s ease-in-out;
+}
+
+.card:hover {
+  transform: scale(1.03);
+}
+
+.psuedoBackground {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.05;
+  background-color: blue;
+  z-index: -1;
+}
+
+#animated-image-container {
+  /* perspective: 1000px; */
+  /* max-width: 300px; */
+  /* width: 200px; */
+  border-radius: 30px;
+}
+
+#animated-image-frame {
+  width: 19.31rem;
+  height: 41.2rem;
+  /* border: 3px solid black; */
+  border-radius: 30px;
+  
+}
+
+@keyframes rotateAnimation {
+  0% {
+    transform: rotateY(0deg) translateZ(0px);
+  }
+  100% {
+    transform: rotateY(360deg) translateZ(0px);
+  }
+}
+
+.typewriterText {
+  overflow: hidden; /* Ensures the text doesn't overflow the container */
+  white-space: nowrap; /* Keeps the text in a single line */
+  animation: typing 4s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink-caret {
+  from,
+  to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: black;
+  }
+}
+
+@keyframes scaleAnimation {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate {
+  animation: scaleAnimation 1s infinite;
+}
+
+.link-container {
+  position: relative;
+}
+
+.link-container {
+  position: relative;
+}
+
+.link-container:hover .hover-div {
+  display: flex;
+  justify-content: center;
+}
+
+.hover-div {
+  display: none;
+  position: absolute;
+  background-color: #f9f9f9;
+  min-width: 400px;
+  padding: 5px;
+  z-index: 1;
+  top: -150px;
+  right: -500px;
+  transform: translateX(100%);
+  animation: slide-in 0.3s forwards;
+}
+
+@keyframes slide-in {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
