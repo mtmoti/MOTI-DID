@@ -12,7 +12,7 @@ async function deletePayload(path) {
 }
 
 describe('Delete linktree API', () => {
-  let publicKey = 'k76rFraBxCJmezqTQteKa9EvsqxUMP8MHCwim62j9Je';
+  let publicKey = '8vo9Myt88WM2tHrneR3Q3uxpmE7edAzvpo34hZUzGoWe';
   let path;
 
   beforeAll(() => {

@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/db_model');
 const fs = require('fs');
 const cors = require('cors');
-const nacl = require('tweetnacl');
-const bs58 = require('bs58');
-const { namespaceWrapper } = require('../environment/namespaceWrapper');
 const bodyParser = require('body-parser');
 const controllers = require('../controllers/controller');
 

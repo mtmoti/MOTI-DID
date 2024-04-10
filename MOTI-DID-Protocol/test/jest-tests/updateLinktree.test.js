@@ -9,7 +9,7 @@ function updatePayload() {
   const data = {
     uuid: 'a093c2a2-9d96-4fa8-97d6-fde3d58dde6e',
     linktree: {
-      name: 'Update Linktree test',
+      name: 'NEW Linktree TEST',
       description: 'Linktree test description',
       image:
         'https://www.koii.network/_next/image?url=%2FKoiiNetwork-logo_128.png&w=48&q=75',
@@ -103,6 +103,9 @@ describe('update linktree API', () => {
   test('Updating linktree payload - Success', async () => {
     const payload = updatePayload();
     const response = await putPayload(path, payload);
+
+    console.log(response.data);
+
     expect(response.status).toBe(200);
     expect(response.data).toBeDefined();
   });
@@ -124,7 +127,6 @@ describe('update linktree API', () => {
     const payload = invalidSignaturePayload();
     const response = await putPayload(path, payload);
     expect(response.status).toBe(400);
-    console.log(response.data);
     expect(response.data).toBeDefined();
   });
 });

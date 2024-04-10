@@ -115,7 +115,6 @@ let deleteLinkTrees = async (req, res) => {
 // update the linktree
 let updateLinkTree = async (req, res) => {
   const { publicKey, signature, data } = req.body.payload;
-
   if (!publicKey || !signature) {
     return res.status(400).json({ error: 'Missing publicKey or signature' });
   }
@@ -298,7 +297,7 @@ let postAuthList = async (req, res) => {
       return res.status(400).send('pubkey is missing in the request body');
     }
 
-    const result = await setAuthList(pubkey);
+    const result = await db.setAuthList(pubkey);
 
     if (result && result.success) {
       return res.status(200).send(result.message);
@@ -325,13 +324,6 @@ let getNodeUrl = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
-// router.post('/register-authlist', async (req, res) => {
-//   const pubkey = req.body.pubkey;
-//   await db.setAuthList(pubkey);
-//   return res.status(200).send({message: 'Authlist registered successfully'});
-// }
-// )
 
 module.exports = {
   taskState,
