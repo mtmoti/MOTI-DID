@@ -648,7 +648,8 @@ function LinktreeEditForm({
               w="full"
               // maxW="254px"
               rounded="full"
-              color={choosenTheme === "Gradient" ? "#040311" : "white"}
+              // color={choosenTheme === "Gradient" ? "#040311" : "white"}
+              color={"white"}
               background={buttonBgColors[choosenTheme]}
               // _disabled={{ background: buttonBgColors[choosenTheme], opacity: "30%" }}
               _hover={{
@@ -667,7 +668,7 @@ function LinktreeEditForm({
                 {!!magicPayload || isLoading || isUploadingImage ? (
                   <Spinner />
                 ) : (
-                  "Publish"
+                  "UPDATE"
                 )}
               </>
             </Button>

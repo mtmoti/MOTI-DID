@@ -231,7 +231,7 @@ const CreateLinktree = () => {
         }, 3000);
         return;
       }
-      console.log(values)
+      console.log(values);
       const userData = await getLinktreeWithUsername(values.username, nodeList);
       if (userData?.data?.username) {
         toast({
@@ -310,7 +310,8 @@ const CreateLinktree = () => {
       setIsLoading(false);
       return toast({
         title: "Try again",
-        description: "Your image is too powerful! Please reupload a file below 4MB.",
+        description:
+          "Your image is too powerful! Please reupload a file below 4MB.",
         status: "error",
         duration: 4000,
         isClosable: true,
@@ -506,7 +507,7 @@ const CreateLinktree = () => {
                 handleLabelSelection={handleLabelSelection}
                 handleThemeSelection={handleThemeSelection}
                 colorScheme={radioColorScheme}
-                registerLinkText={"Publish"}
+                registerLinkText={"PUBLISH"}
               />
               <MasterMagic />
             </>

@@ -28,9 +28,12 @@ import { CheckCircle2, PlusCircle } from "lucide-react";
 import { useSelector } from "react-redux";
 
 export const buttonBgColors = {
-  Dark: "linear-gradient(92.39deg, #0E9BF4 23.13%, #2BD4BE 110.39%)",
+  // Dark: "linear-gradient(92.39deg, #0E9BF4 23.13%, #2BD4BE 110.39%)",
+  Dark: "linear-gradient(94.11deg, hsl(314, 0%, 25%), hsl(214, 0%, 45%),  hsl(314, 0%, 25%))",
   Mint: "#100E1E",
-  Gradient: "linear-gradient(94.11deg, #F9A443 3.58%, #EA8224 98.65%)",
+  Gradient:
+    "linear-gradient(94.11deg, hsl(214, 100%, 35%), hsl(214, 100%, 55%), hsl(214, 100%, 35%));",
+  // Gradient: "linear-gradient(94.11deg, #F9A443 3.58%, #EA8224 98.65%)",
   "Gradient-Two": "#734C3D",
 };
 
@@ -93,11 +96,13 @@ function LinktreeForm({
         links: array(
           object({
             label: string().required("Link label is required"),
-            redirectUrl: string().required("Link URL is required").matches(
-              /^(https?:\/\/)/i,
+            redirectUrl: string()
+              .required("Link URL is required")
+              .matches(
+                /^(https?:\/\/)/i,
 
-              "Enter correct url!"
-            ),
+                "Enter correct url!"
+              ),
             key: string(),
             isFavorite: boolean(),
           })
@@ -894,7 +899,8 @@ function LinktreeForm({
               w="full"
               // maxW="254px"
               rounded="full"
-              color={choosenTheme === "Gradient" ? "#040311" : "white"}
+              // color={choosenTheme === "Gradient" ? "#040311" : "white"}
+              color={"white"}
               background={buttonBgColors[choosenTheme]}
               _disabled={{
                 background: buttonBgColors[choosenTheme],
@@ -918,10 +924,18 @@ function LinktreeForm({
             </Button>
             <>
               <Box mt={7}>
-                <Text textAlign="center" color="var(--koii-create-topic)" fontWeight="700">
+                <Text
+                  textAlign="center"
+                  color="var(--koii-create-topic)"
+                  fontWeight="700"
+                >
                   {user?.email}
                 </Text>
-                <Text textAlign="center" color="var(--koii-create-topic)" fontWeight="400">
+                <Text
+                  textAlign="center"
+                  color="var(--koii-create-topic)"
+                  fontWeight="400"
+                >
                   <strong>Wallet Address:</strong> {user?.publicKey}
                 </Text>
               </Box>

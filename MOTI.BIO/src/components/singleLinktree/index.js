@@ -101,10 +101,14 @@ function SingleLinktree({
   //   userData?.choosenLabelTheme || "label-one"
   // }-border-color)`;
 
+  // need to be change
   const buttonBgColors = {
-    Dark: "linear-gradient(92.39deg, #0E9BF4 23.13%, #2BD4BE 110.39%)",
-    Mint: "#232121",
-    Gradient: "linear-gradient(94.11deg, #F9A443 3.58%, #EA8224 98.65%)",
+    // Dark: "linear-gradient(92.39deg, #0E9BF4 23.13%, #2BD4BE 110.39%)",
+    Dark: "linear-gradient(94.11deg, hsl(314, 0%, 25%), hsl(214, 0%, 45%),  hsl(314, 0%, 25%))",
+    Mint: "#100E1E",
+    Gradient:
+      "linear-gradient(94.11deg, hsl(214, 100%, 35%), hsl(214, 100%, 55%), hsl(214, 100%, 35%));",
+    // Gradient: "linear-gradient(94.11deg, #F9A443 3.58%, #EA8224 98.65%)",
     "Gradient-Two": "#734C3D",
   };
 
@@ -120,7 +124,7 @@ function SingleLinktree({
     }, 500);
   }, [userData?.theme, userData?.name]);
 
-  const color = ["Gradient", "Dark"].includes(userData?.theme)
+  const color = ["Dark", "Gradient"].includes(userData?.theme)
     ? "white"
     : "black";
   const Logo = ["Gradient", "Dark"].includes(userData?.theme)
@@ -327,11 +331,12 @@ function SingleLinktree({
                         >
                           <Button
                             color={
-                              index === 0
-                                ? userData?.theme === "Gradient"
-                                  ? "#040311"
-                                  : "white"
-                                : "black"
+                              "white"
+                              // index === 0
+                              //   ? userData?.theme === "Gradient"
+                              //     ? "#040311"
+                              //     : "white"
+                              //   : "black"
                             }
                             width={{ base: "20rem", md: "29.3rem" }}
                             height="3.6rem"
