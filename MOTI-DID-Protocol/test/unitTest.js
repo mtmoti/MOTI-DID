@@ -7,11 +7,9 @@
  * After the delay time the submission function will start.
  */
 
-const index = require('../index');
 const dotenv = require('dotenv');
 require('dotenv').config();
 const Linktree = require('../linktree');
-const db = require('../database/db_model');
 dotenv.config();
 
 async function test_coreLogic() {

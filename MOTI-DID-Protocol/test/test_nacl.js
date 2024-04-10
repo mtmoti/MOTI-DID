@@ -1,5 +1,4 @@
 // test nacl verified
-
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 

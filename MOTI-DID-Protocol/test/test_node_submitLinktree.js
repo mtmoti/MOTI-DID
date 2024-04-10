@@ -1,10 +1,9 @@
+// create the linktree
 const { default: axios } = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
-const fs = require('fs');
-const solanaWeb3 = require('@solana/web3.js');
-const crypto = require('crypto');
+require('dotenv').config();
 
 // This test submits linktrees from differnet publicKey to the service and stored in localdb
 async function main() {
@@ -47,16 +46,15 @@ async function main() {
       publicKey: pubkey,
       signature: sign,
     };
-    // console.log(pubkey)
+    let path = `https://k2-tasknet.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree`;
+    if (process.env.ENVIRONMENT === 'development') {
+      path = `http://localhost:10000/linktree/`;
+    }
 
-    // Check payload
-    // console.log(payload);
+    console.log(path);
 
     await axios
-      .post(
-        'https://k2-tasknet-ports-2.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
-        { payload },
-      )
+      .post(path, { payload })
       .then(e => {
         if (e.status != 200) {
           console.log(e);
@@ -66,48 +64,48 @@ async function main() {
       .catch(e => {
         console.error(e);
       });
-    await axios
-      .post(
-        'https://k2-tasknet-ports-1.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
-        { payload },
-      )
-      .then(e => {
-        if (e.status != 200) {
-          console.log(e);
-        }
-        console.log(e.data);
-      })
-      .catch(e => {
-        console.error(e);
-      });
-    await axios
-      .post(
-        'https://k2-tasknet.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
-        { payload },
-      )
-      .then(e => {
-        if (e.status != 200) {
-          console.log(e);
-        }
-        console.log(e.data);
-      })
-      .catch(e => {
-        console.error(e);
-      });
-    await axios
-      .post(
-        'https://k2-tasknet-ports-3.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
-        { payload },
-      )
-      .then(e => {
-        if (e.status != 200) {
-          console.log(e);
-        }
-        console.log(e.data);
-      })
-      .catch(e => {
-        console.error(e);
-      });
+    // await axios
+    //   .post(
+    //     'https://k2-tasknet-ports-1.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
+    //     { payload },
+    //   )
+    //   .then(e => {
+    //     if (e.status != 200) {
+    //       console.log(e);
+    //     }
+    //     console.log(e.data);
+    //   })
+    //   .catch(e => {
+    //     console.error(e);
+    //   });
+    // await axios
+    //   .post(
+    //     'https://k2-tasknet.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
+    //     { payload },
+    //   )
+    //   .then(e => {
+    //     if (e.status != 200) {
+    //       console.log(e);
+    //     }
+    //     console.log(e.data);
+    //   })
+    //   .catch(e => {
+    //     console.error(e);
+    //   });
+    // await axios
+    //   .post(
+    //     'https://k2-tasknet-ports-3.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree',
+    //     { payload },
+    //   )
+    //   .then(e => {
+    //     if (e.status != 200) {
+    //       console.log(e);
+    //     }
+    //     console.log(e.data);
+    //   })
+    //   .catch(e => {
+    //     console.error(e);
+    //   });
   } catch (e) {
     console.error(e);
   }

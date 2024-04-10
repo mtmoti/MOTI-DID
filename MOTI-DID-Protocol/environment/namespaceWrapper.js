@@ -467,6 +467,7 @@ async function genericHandler(...args) {
     return { error: err };
   }
 }
+
 let connection;
 const namespaceWrapper = new NamespaceWrapper();
 if (taskNodeAdministered) {

@@ -1,20 +1,16 @@
-const {default: axios} = require('axios');
-const {v4: uuidv4} = require('uuid');
-const bs58 = require('bs58');
-const nacl = require('tweetnacl');
-const fs = require("fs")
+const { default: axios } = require('axios');
 try {
   axios
     .get('http://localhost:10000/linktree/list')
-    .then((e) => {
+    .then(e => {
       if (e.status != 200) {
         console.log(e);
       }
       console.log(e.data);
     })
-    .catch((e) => {
+    .catch(e => {
       console.error(e);
     });
 } catch (e) {
-    console.error(e)
+  console.error(e);
 }

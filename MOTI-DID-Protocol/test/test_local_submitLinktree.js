@@ -2,9 +2,6 @@ const { default: axios } = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
-const fs = require('fs');
-const solanaWeb3 = require('@solana/web3.js');
-const crypto = require('crypto');
 
 // This test submits linktrees from differnet publicKey to the service and stored in localdb
 async function main() {

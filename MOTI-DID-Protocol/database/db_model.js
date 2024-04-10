@@ -14,24 +14,33 @@ ensureIndex();
  */
 
 // Get a linktree from the database using the public key
-
+// const getLinktree = async publicKey => {
+//   const db = await namespaceWrapper.getDb();
+//   const linktreeId = getLinktreeId(publicKey);
+//   try {
+//     const resp = await db.findOne({ linktreeId });
+//     if (resp) {
+//       return resp.linktree;
+//     } else {
+//       return null;
+//     }
+//   } catch (e) {
+//     console.error(e);
+//     return null;
+//   }
+// };
 const getLinktree = async publicKey => {
-  const db = await namespaceWrapper.getDb();
-  const linktreeId = getLinktreeId(publicKey);
   try {
+    const db = await namespaceWrapper.getDb();
+    const linktreeId = getLinktreeId(publicKey);
     const resp = await db.findOne({ linktreeId });
-    if (resp) {
-      return resp.linktree;
-    } else {
-      return null;
-    }
-  } catch (e) {
-    console.error(e);
-    return null;
+    return resp ? resp.linktree : null;
+  } catch (error) {
+    return e;
   }
 };
 
-const getLinktreeWithUsername = async username => {
+const getLinkTreeWithUsername = async username => {
   console.log({ username });
   const db = await namespaceWrapper.getDb();
   try {
@@ -77,26 +86,50 @@ const setLinktree = async (publicKey, linktree) => {
     return undefined;
   }
 };
+// const updateLinktree = async (publicKey, linktree) => {
+//   const db = await namespaceWrapper.getDb();
+//   try {
+//     const linktreeId = getLinktreeId(publicKey);
+//     const resp = await db.findOne({ linktreeId });
+//     const username = resp.username;
+//     db.update(
+//       { _id: resp._id, linktreeId },
+//       { $set: { linktreeId, linktree, username } },
+//       {}, // this argument was missing
+//       function (err, numReplaced) {
+//         // console.log('replaced---->' + numReplaced);
+
+//         db.loadDatabase();
+//       },
+//     );
+//     return console.log('Linktree set');
+//   } catch (err) {
+//     return undefined;
+//   }
+// };
 
 const updateLinktree = async (publicKey, linktree) => {
   const db = await namespaceWrapper.getDb();
   try {
     const linktreeId = getLinktreeId(publicKey);
     const resp = await db.findOne({ linktreeId });
+
+    // If response is null, meaning linktreeId not found, throw an error
+    if (!resp) {
+      throw new Error('Linktree not found for the given publicKey');
+    }
+
     const username = resp.username;
-    db.update(
+
+    // Use db.updateOne instead of db.update for clarity
+    await db.updateOne(
       { _id: resp._id, linktreeId },
       { $set: { linktreeId, linktree, username } },
-      {}, // this argument was missing
-      function (err, numReplaced) {
-        // console.log('replaced---->' + numReplaced);
-
-        db.loadDatabase();
-      },
     );
-    return console.log('Linktree set');
+
+    return 'Linktree updated';
   } catch (err) {
-    return undefined;
+    return err;
   }
 };
 
@@ -222,16 +255,28 @@ const getAuthList = async pubkey => {
   }
 };
 
+// const setAuthList = async pubkey => {
+//   const db = await namespaceWrapper.getDb();
+//   try {
+//     const authListId = getAuthListId(pubkey);
+
+//     await db.insert({ authListId, pubkey });
+
+//     return console.log('auth List pubkey set');
+//   } catch (err) {
+//     return undefined;
+//   }
+// };
 const setAuthList = async pubkey => {
-  const db = await namespaceWrapper.getDb();
   try {
+    const db = await namespaceWrapper.getDb();
     const authListId = getAuthListId(pubkey);
 
     await db.insert({ authListId, pubkey });
 
-    return console.log('auth List pubkey set');
-  } catch (err) {
-    return undefined;
+    return { success: true, message: 'Auth list pubkey set successfully' };
+  } catch (error) {
+    return { success: false, error: 'Error setting auth list' };
   }
 };
 
@@ -275,7 +320,7 @@ module.exports = {
   setAuthList,
   getAllAuthList,
   getAuthListId,
-  getLinktreeWithUsername,
+  getLinkTreeWithUsername,
   updateLinktree,
   getLinktreeWithPubKey,
 };
