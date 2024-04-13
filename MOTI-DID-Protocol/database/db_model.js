@@ -103,8 +103,12 @@ const getAllLinktrees = async () => {
   const db = await namespaceWrapper.getDb();
   const linktreeListRaw = await db.find({
     linktree: { $exists: true },
-  });
+  });      
+  console.log('list', linktreeListRaw.length)
   let linktreeList = linktreeListRaw.map(linktreeList => linktreeList.linktree);
+  console.log('list', linktreeList.length)
+  // let path =  this.getTaskLevelDBPath();
+  console.log('db path is ')
   return linktreeList;
 };
 

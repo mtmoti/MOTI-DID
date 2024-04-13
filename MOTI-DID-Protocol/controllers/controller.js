@@ -21,7 +21,7 @@ let taskState = async (req, res) => {
 // create a linktree
 let createLinkTree = async (req, res) => {
   const linktree = req.body.payload;
-
+  console.log('new linktree', linktree)
   try {
     if (
       !linktree ||
