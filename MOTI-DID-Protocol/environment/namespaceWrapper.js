@@ -18,6 +18,7 @@ class NamespaceWrapper {
     if (this.#db) return;
     try {
       const path = await this.getTaskLevelDBPath();
+      console.log('db path is ', path)
       this.#db = Datastore.create(path);
     } catch (e) {
       this.#db = Datastore.create(`../namespace/${TASK_ID}/KOIILevelDB.db`);
