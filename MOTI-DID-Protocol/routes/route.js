@@ -37,6 +37,12 @@ router.get(
   controllers.getLinkTreeWithUsername,
 );
 
+// get LinkTree With signature
+router.get(
+  '/linktree/get/signature/:signature',
+  controllers.getLinkTreeWithSignature,
+);
+
 // get all proofs
 router.get('/proofs/all', controllers.getAllProofs);
 
@@ -66,6 +72,10 @@ router.get('/logs', async (req, res) => {
   const logs = fs.readFileSync('./namespace/logs.txt', 'utf8');
   res.status(200).send(logs);
 });
+
+// get the image
+router.get('/img/:publicKey', controllers.getImage);
+router.post('/img/:publicKey', controllers.postImage);
 
 // router.post('/register-authlist', async (req, res) => {
 //   const pubkey = req.body.pubkey;

@@ -42,6 +42,23 @@ const getLinkTreeWithUsername = async username => {
   }
 };
 
+// get with signature
+const getLinkTreeWithSignature = async signature => {
+  const db = await namespaceWrapper.getDb();
+  try {
+    const resp = await db.find({
+      'linktree.signature': signature,
+    });
+    if (resp[0] != null && resp[0] !== undefined && resp[0] !== '') {
+      return resp[0];
+    } else {
+      return null;
+    }
+  } catch (e) {
+    return null;
+  }
+};
+
 const deleteLinktree = async publicKey => {
   const db = await namespaceWrapper.getDb();
   const linktreeId = getLinktreeId(publicKey);
@@ -59,7 +76,6 @@ const deleteLinktree = async publicKey => {
 };
 
 // Store a linktree in the database using the public key
-// TODO - Add validation on signatures to ensure false linktree updates are not possible
 const setLinktree = async (publicKey, linktree) => {
   const db = await namespaceWrapper.getDb();
   try {
@@ -103,12 +119,10 @@ const getAllLinktrees = async () => {
   const db = await namespaceWrapper.getDb();
   const linktreeListRaw = await db.find({
     linktree: { $exists: true },
-  });      
-  console.log('list', linktreeListRaw.length)
+  });
+  console.log('list', linktreeListRaw.length);
   let linktreeList = linktreeListRaw.map(linktreeList => linktreeList.linktree);
-  console.log('list', linktreeList.length)
-  // let path =  this.getTaskLevelDBPath();
-  console.log('db path is ')
+  console.log('list', linktreeList.length);
   return linktreeList;
 };
 
@@ -289,4 +303,5 @@ module.exports = {
   getLinkTreeWithUsername,
   updateLinktree,
   getLinktreeWithPubKey,
+  getLinkTreeWithSignature,
 };
