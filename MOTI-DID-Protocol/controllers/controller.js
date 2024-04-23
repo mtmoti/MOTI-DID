@@ -140,7 +140,7 @@ let updateLinkTree = async (req, res) => {
     // Update linktree and set proofs
     await Promise.all([
       db.updateLinktree(publicKey, req.body.payload),
-      db.setProofs(publicKey, { publicKey, signature }),
+      db.updateProofs(publicKey, { publicKey, signature }),
     ]);
 
     return res

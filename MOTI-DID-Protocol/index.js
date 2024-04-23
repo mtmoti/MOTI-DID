@@ -23,6 +23,7 @@ const path = require('path');
 
 async function setup() {
   const originalConsoleLog = console.log;
+  // change this path not working with testnet
   const logDir = './namespace';
   const logFile = 'logs.txt';
   const maxLogAgeInDays = 3;

@@ -99,13 +99,24 @@ const updateLinktree = async (publicKey, linktree) => {
       throw new Error('Linktree not found for the given publicKey');
     }
 
-    const username = resp.username;
-
-    // Use db.updateOne instead of db.update for clarity
-    await db.updateOne(
-      { _id: resp._id, linktreeId },
-      { $set: { linktreeId, linktree, username } },
+    const updateLinktree = await db.update(
+      { _id: resp._id, linktreeId: linktreeId },
+      {
+        $set: {
+          _id: resp._id,
+          linktreeId: linktreeId,
+          linktree: linktree,
+          username: resp.username,
+        },
+      },
+      {},
+      function (err, numReplaced) {
+        console.log('replaced---->' + numReplaced);
+        db.loadDatabase();
+      },
     );
+
+    console.log('updateLinktree:   ', updateLinktree);
 
     return 'Linktree updated';
   } catch (err) {
@@ -114,7 +125,6 @@ const updateLinktree = async (publicKey, linktree) => {
 };
 
 // Get all linktrees from the database
-
 const getAllLinktrees = async () => {
   const db = await namespaceWrapper.getDb();
   const linktreeListRaw = await db.find({
@@ -145,21 +155,37 @@ const getProofs = async pubkey => {
 };
 
 // Store the proofs object in the database using the public key
-
 const setProofs = async (pubkey, proofs) => {
   const db = await namespaceWrapper.getDb();
   try {
     const proofsId = getProofsId(pubkey);
-    const result = await db.insert({ proofsId, proofs });
-    // console.log('Proofs set', result);
+    await db.insert({ proofsId, proofs });
     return console.log('Proofs set');
   } catch (err) {
     return undefined;
   }
 };
 
-// Get all proofs from the database
+// update the proof
+const updateProofs = async (pubkey, newProofs) => {
+  const db = await namespaceWrapper.getDb();
+  try {
+    const proofsId = getProofsId(pubkey);
+    const existingProofs = await db.findOne({ proofsId });
 
+    if (!existingProofs) {
+      throw new Error('Linktree not found for the given publicKey');
+    }
+
+    const updatedProofs = { ...existingProofs.proofs, ...newProofs };
+    await db.update({ proofsId }, { $set: { proofs: updatedProofs } });
+    return 'Proofs updated';
+  } catch (err) {
+    return undefined;
+  }
+};
+
+// Get all proofs from the database
 const getAllProofs = async () => {
   const db = await namespaceWrapper.getDb();
   const proofsListRaw = await db.find({
@@ -304,4 +330,5 @@ module.exports = {
   updateLinktree,
   getLinktreeWithPubKey,
   getLinkTreeWithSignature,
+  updateProofs,
 };
