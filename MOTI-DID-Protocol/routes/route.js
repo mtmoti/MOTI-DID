@@ -68,10 +68,10 @@ router.post('/authlist', controllers.postAuthList);
 router.get('/nodeurl', controllers.getNodeUrl);
 
 // get logs.txt
-router.get('/logs', async (req, res) => {
-  const logs = fs.readFileSync('./namespace/logs.txt', 'utf8');
-  res.status(200).send(logs);
-});
+// router.get('/logs', async (req, res) => {
+//   const logs = fs.readFileSync('./namespace/logs.txt', 'utf8');
+//   res.status(200).send(logs);
+// });
 
 // get the image
 router.get('/img/:publicKey', controllers.getImage);

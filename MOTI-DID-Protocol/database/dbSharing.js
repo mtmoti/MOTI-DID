@@ -65,6 +65,10 @@ const share = async () => {
       if (!payload || payload.length == 0) continue;
       for (let i = 0; i < payload.length; i++) {
         const value = payload[i];
+
+        console.log('value: ------> ' + value);
+        console.log('value uuid: ------> ', value.uuid);
+
         // Verify the signature
         try {
           let localExistingLinktree = allLinktrees.find(e => {
