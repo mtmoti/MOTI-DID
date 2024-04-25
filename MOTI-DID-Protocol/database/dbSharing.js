@@ -12,20 +12,25 @@ const bs58 = require('bs58');
  */
 const share = async () => {
   try {
-    // console.log('start dbSharing');
+    console.log('start dbSharing');
 
     // find another node
     const nodesUrl = `${SERVICE_URL}/nodes/${TASK_ID}`;
 
+    console.log('nodesUrl db sharing --: ', nodesUrl);
+
     // check if the node is online
     const res = await axios.get(nodesUrl);
+
+    console.log('res db sharing --: ', res);
+
     if (res.status != 200) {
-      console.error('Error', res.status);
+      console.error('DB sharing Error', res.status);
       return;
     }
 
     if (!res.data) {
-      console.error('No valid nodes running');
+      console.error('DB sharing No valid nodes running');
       return;
     }
 
@@ -48,7 +53,8 @@ const share = async () => {
     for (let url of nodeUrlList) {
       if (url === SERVICE_URL) continue;
 
-      // console.log(url);
+      console.log(url);
+
       const res = await axios.get(`${url}/task/${TASK_ID}/linktree/list`);
       if (res.status != 200) {
         console.error('ERROR', res.status);
@@ -59,6 +65,10 @@ const share = async () => {
       if (!payload || payload.length == 0) continue;
       for (let i = 0; i < payload.length; i++) {
         const value = payload[i];
+
+        console.log('value: ------> ' + value);
+        console.log('value uuid: ------> ', value.uuid);
+
         // Verify the signature
         try {
           let localExistingLinktree = allLinktrees.find(e => {

@@ -21,7 +21,6 @@ let taskState = async (req, res) => {
 // create a linktree
 let createLinkTree = async (req, res) => {
   const linktree = req.body.payload;
-  console.log('new linktree', linktree)
   try {
     if (
       !linktree ||
@@ -70,6 +69,13 @@ let createLinkTree = async (req, res) => {
     // public key found then dont add user in the db
     const pubKey = await db.getLinktreeWithPubKey(pubkey);
     if (pubKey) return res.status(406).send({ message: 'Not Acceptable' });
+
+    // if signature is already present then return error, user is already present
+    const checkSignature = await db.getLinkTreeWithSignature(signature);
+    if (checkSignature)
+      return res
+        .status(406)
+        .send({ message: 'Not Acceptable. Signature is already' });
 
     // otherwise Add in the db all the info and create the linktree
     await db.setLinktree(pubkey, linktree);
@@ -134,7 +140,7 @@ let updateLinkTree = async (req, res) => {
     // Update linktree and set proofs
     await Promise.all([
       db.updateLinktree(publicKey, req.body.payload),
-      db.setProofs(publicKey, { publicKey, signature }),
+      db.updateProofs(publicKey, { publicKey, signature }),
     ]);
 
     return res
@@ -170,6 +176,21 @@ let getLinkTreeWithUsername = async (req, res) => {
   try {
     const { username } = req.params;
     const linktree = await db.getLinkTreeWithUsername(username);
+
+    if (!linktree) {
+      return res.status(404).send('Linktree Not Found');
+    }
+    return res.status(200).send(linktree);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// get with the signature
+let getLinkTreeWithSignature = async (req, res) => {
+  try {
+    const { signature } = req.params;
+    const linktree = await db.getLinkTreeWithSignature(signature);
 
     if (!linktree) {
       return res.status(404).send('Linktree Not Found');
@@ -325,6 +346,84 @@ let getNodeUrl = async (req, res) => {
   }
 };
 
+// add the image and get the image
+let getImage = async (req, res) => {
+  try {
+    const { imagePath } = req.query;
+
+    const getImage = await namespaceWrapper.fsReadStream(imagePath);
+
+    // get the extension from the path
+    const startIndex = imagePath.lastIndexOf('.');
+    const fileExtension = imagePath.slice(startIndex);
+
+    // Convert the data buffer into a Buffer object
+    const buffer = Buffer.from(getImage.data);
+
+    // Convert the buffer to Base64
+    const base64Image =
+      `data:image/${fileExtension};base64,` + buffer.toString('base64');
+
+    if (!getImage) {
+      res.status(404).json({ error: 'Not Found' });
+      return;
+    }
+
+    res.status(200).json(base64Image);
+  } catch (error) {
+    res.status(500).send({ error: error });
+    return;
+  }
+};
+
+let postImage = async (req, res) => {
+  try {
+    const previousImagePath = req.body.previousImagePath;
+    const imageData = req.body.imageData;
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const matches = imageData.match(/^data:image\/(\w+);base64,/);
+    const extension = matches ? matches[1] : null;
+    const fileName = `/img/${req.body.cid}.${extension}`;
+
+    let imagePath;
+    if (
+      req.body.cid === '' ||
+      req.body.cid === null ||
+      req.body.cid === undefined
+    ) {
+      if (
+        previousImagePath === '' ||
+        previousImagePath === null ||
+        previousImagePath === undefined
+      ) {
+        return res.status(200).json({ getImage: null });
+      }
+
+      return res.status(200).json({ getImage: previousImagePath });
+    }
+
+    if (
+      previousImagePath === '' ||
+      previousImagePath === null ||
+      previousImagePath === undefined
+    ) {
+      imagePath = await namespaceWrapper.fsWriteStream(fileName, buffer, '');
+    } else {
+      imagePath = await namespaceWrapper.fsWriteStream(
+        fileName,
+        buffer,
+        previousImagePath,
+      );
+    }
+
+    return res.status(200).json({ getImage: imagePath });
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+    return;
+  }
+};
+
 module.exports = {
   taskState,
   createLinkTree,
@@ -341,4 +440,7 @@ module.exports = {
   getAllAuthList,
   postAuthList,
   getNodeUrl,
+  getLinkTreeWithSignature,
+  getImage,
+  postImage,
 };
