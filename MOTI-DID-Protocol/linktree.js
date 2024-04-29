@@ -2,6 +2,7 @@ const { namespaceWrapper } = require('./environment/namespaceWrapper');
 const db = require('./database/db_model');
 const linktree_task = require('./linktree/linktree_task');
 const linktree_validate = require('./linktree/linktree_validate');
+const { LAMPORTS_PER_SOL } = require('@_koi/web3.js');
 
 /**
  * @class Linktree
@@ -63,13 +64,10 @@ class Linktree {
     try {
       console.log('GenerateDistributionList called');
       console.log('I am selected node');
-      // console.log('Round', round, 'Task State', _dummyTaskState);
-      // The logic to generate the distribution list here
 
       let distributionList = {};
       let distributionCandidates = [];
       let taskAccountDataJSON = await namespaceWrapper.getTaskState();
-
       if (taskAccountDataJSON == null) taskAccountDataJSON = _dummyTaskState;
 
       // console.log('Task Account Data', taskAccountDataJSON);
@@ -79,14 +77,12 @@ class Linktree {
         taskAccountDataJSON.submissions_audit_trigger[round];
 
       if (submissions == null) {
-        // console.log('No submisssions found in N-2 round');
+        console.log('No submisssions found in N-2 round');
         return distributionList;
       } else {
         const keys = Object.keys(submissions);
         const values = Object.values(submissions);
         const size = values.length;
-        // console.log('Submissions from last round: ', keys, values, size);
-
         // Logic for slashing the stake of the candidate who has been audited and found to be false
         for (let i = 0; i < size; i++) {
           const candidatePublicKey = keys[i];
@@ -94,10 +90,6 @@ class Linktree {
             submissions_audit_trigger &&
             submissions_audit_trigger[candidatePublicKey]
           ) {
-            // console.log(
-            //   'distributions_audit_trigger votes ',
-            //   submissions_audit_trigger[candidatePublicKey].votes,
-            // );
             const votes = submissions_audit_trigger[candidatePublicKey].votes;
             if (votes.length === 0) {
               // slash 70% of the stake as still the audit is triggered but no votes are casted
@@ -107,7 +99,7 @@ class Linktree {
               const candidateStake = stake_list[candidatePublicKey];
               const slashedStake = candidateStake * 0.7;
               distributionList[candidatePublicKey] = -slashedStake;
-              // console.log('Candidate Stake', candidateStake);
+              console.log('Candidate Stake', candidateStake);
             } else {
               let numOfVotes = 0;
               for (let index = 0; index < votes.length; index++) {
@@ -123,9 +115,8 @@ class Linktree {
                 const candidateStake = stake_list[candidatePublicKey];
                 const slashedStake = candidateStake * 0.7;
                 distributionList[candidatePublicKey] = -slashedStake;
-                // console.log('Candidate Stake', candidateStake);
+                console.log('Candidate Stake', candidateStake);
               }
-
               if (numOfVotes > 0) {
                 distributionCandidates.push(candidatePublicKey);
               }
@@ -139,28 +130,47 @@ class Linktree {
       // now distribute the rewards based on the valid submissions
       // Here it is assumed that all the nodes doing valid submission gets the same reward
 
-      const reward =
-        taskAccountDataJSON.bounty_amount_per_round /
-        distributionCandidates.length;
-      // console.log('REWARD RECEIVED BY EACH NODE', reward);
-      for (let i = 0; i < distributionCandidates.length; i++) {
-        distributionList[distributionCandidates[i]] = reward;
+      console.log(
+        'LENGTH OF DISTRIBUTION CANDIDATES',
+        distributionCandidates.length,
+      );
+      console.log('Bounty Amount', taskAccountDataJSON.bounty_amount_per_round);
+
+      // const reward =
+      //   taskAccountDataJSON.bounty_amount_per_round /
+      //   distributionCandidates.length;
+      const reward = 0.5 * LAMPORTS_PER_SOL;
+      // console.log("REWARD PER NODE IN LAMPORTS", reward);
+      // console.log("REWARD RECEIVED BY EACH NODE", reward);
+      if (distributionCandidates.length < 20000) {
+        for (let i = 0; i < distributionCandidates.length; i++) {
+          distributionList[distributionCandidates[i]] = reward;
+        }
+      } else {
+        // randomly select 1000 nodes
+        const selectedNodes = [];
+
+        while (selectedNodes.length < 20000) {
+          const randomIndex = Math.floor(
+            Math.random() * distributionCandidates.length,
+          );
+          const randomNode = distributionCandidates[randomIndex];
+          if (!selectedNodes.includes(randomNode)) {
+            selectedNodes.push(randomNode);
+          }
+          //console.log("selected Node length",selectedNodes.length);
+          //console.log("SELECTED nodes ARRAY",selectedNodes);
+        }
+        for (let i = 0; i < selectedNodes.length; i++) {
+          distributionList[selectedNodes[i]] = reward;
+        }
       }
-
       // console.log('Distribution List', distributionList);
-
       return distributionList;
     } catch (err) {
       console.log('ERROR IN GENERATING DISTRIBUTION LIST', err);
     }
-    // This function indexes a list of submissions, scores each of them, and returns a final reward for each submitter pubkey
-    let distributionList = [];
-
-    return distributionList;
   };
-
-  // NOTE: There is no need for a 'validateDistribution' function, as distributions are fully deterministic based on the data submitted on-chain
-  // In some cases a distribution may require special validation, in which case coreLogic.js can be edited directly
 }
 
 module.exports = Linktree;

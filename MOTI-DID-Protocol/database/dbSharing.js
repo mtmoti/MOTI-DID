@@ -53,7 +53,7 @@ const share = async () => {
     for (let url of nodeUrlList) {
       if (url === SERVICE_URL) continue;
 
-      console.log(url);
+      console.error(SERVICE_URL, ' === ', url);
 
       const res = await axios.get(`${url}/task/${TASK_ID}/linktree/list`);
       if (res.status != 200) {
@@ -66,16 +66,26 @@ const share = async () => {
       for (let i = 0; i < payload.length; i++) {
         const value = payload[i];
 
-        console.log('value: ------> ' + value);
-        console.log('value uuid: ------> ', value.uuid);
-
         // Verify the signature
         try {
           let localExistingLinktree = allLinktrees.find(e => {
-            return e.uuid == value.data.uuid;
+            return e.data.uuid == value.data.uuid;
           });
+          console.log(
+            value.data.timestamp,
+            '------------ ',
+            localExistingLinktree,
+          );
+
           if (localExistingLinktree) {
+            console.log(
+              localExistingLinktree.data.timestamp,
+              ' <<<<< ',
+              value.data.timestamp,
+            );
             if (localExistingLinktree.data.timestamp < value.data.timestamp) {
+              console.log('I AM HERE');
+
               const isVerified = nacl.sign.detached.verify(
                 new TextEncoder().encode(JSON.stringify(value.data)),
                 bs58.decode(value.signature),
@@ -95,6 +105,8 @@ const share = async () => {
               };
               await db.setLinktree(value.publicKey, value);
               await db.setProofs(value.publicKey, proofs);
+            } else {
+              console.log('I SHOULD BE HERE ELSEEEEEE');
             }
           } else {
             const isVerified = nacl.sign.detached.verify(
