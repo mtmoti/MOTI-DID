@@ -103,8 +103,8 @@ const share = async () => {
                 publicKey: value.publicKey,
                 signature: value.signature,
               };
-              await db.setLinktree(value.publicKey, value);
-              await db.setProofs(value.publicKey, proofs);
+              await db.updateLinktree(value.publicKey, value);
+              await db.updateProofs(value.publicKey, proofs);
             } else {
               console.log('I SHOULD BE HERE ELSEEEEEE');
             }
