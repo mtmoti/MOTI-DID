@@ -61,8 +61,8 @@ class Linktree {
   // Once all submissions have been audited, they can be scored to distribute rewards
   generateDistribution = async (round, _dummyTaskState) => {
     try {
-      // console.log('GenerateDistributionList called');
-      // console.log('I am selected node');
+      console.log('GenerateDistributionList called');
+      console.log('I am selected node');
       // console.log('Round', round, 'Task State', _dummyTaskState);
       // The logic to generate the distribution list here
 

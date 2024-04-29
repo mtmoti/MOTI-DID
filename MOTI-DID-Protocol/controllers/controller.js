@@ -384,13 +384,14 @@ let postImage = async (req, res) => {
     const buffer = Buffer.from(base64Data, 'base64');
     const matches = imageData.match(/^data:image\/(\w+);base64,/);
     const extension = matches ? matches[1] : null;
-    const fileName = `/img/${req.body.cid}.${extension}`;
+    const fileName = `/${req.params.publicKey}.${extension}`;
+    const imagePath = `/img/${req.params.publicKey}.${extension}`;
 
-    let imagePath;
+    let getImageObject;
     if (
-      req.body.cid === '' ||
-      req.body.cid === null ||
-      req.body.cid === undefined
+      req.params.publicKey === '' ||
+      req.params.publicKey === null ||
+      req.params.publicKey === undefined
     ) {
       if (
         previousImagePath === '' ||
@@ -408,16 +409,22 @@ let postImage = async (req, res) => {
       previousImagePath === null ||
       previousImagePath === undefined
     ) {
-      imagePath = await namespaceWrapper.fsWriteStream(fileName, buffer, '');
-    } else {
-      imagePath = await namespaceWrapper.fsWriteStream(
+      getImageObject = await namespaceWrapper.fsWriteStream(
+        imagePath,
+        buffer,
+        '',
         fileName,
+      );
+    } else {
+      getImageObject = await namespaceWrapper.fsWriteStream(
+        imagePath,
         buffer,
         previousImagePath,
+        fileName,
       );
     }
 
-    return res.status(200).json({ getImage: imagePath });
+    return res.status(200).json(getImageObject);
   } catch (error) {
     res.status(500).send({ error: error.message });
     return;

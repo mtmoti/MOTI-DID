@@ -20,6 +20,7 @@
     "@_koi/web3.js": "^0.0.6",
     "@_koii/create-task-cli": "^0.1.21",
     "@solana/web3.js": "^1.74.0",
+    "@spheron/storage": "^2.0.5",
     "axios": "^0.27.2",
     "eth-sig-util": "^3.0.1",
     "ethereumjs-util": "^7.1.5",

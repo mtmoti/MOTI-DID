@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { default: axios } = require('axios');
 const { TASK_ID, SECRET_KEY, TASK_NODE_PORT, LogLevel } = require('./init');
 const Datastore = require('nedb-promises');
@@ -6,6 +7,9 @@ const bs58 = require('bs58');
 const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
+const { SpheronClient, ProtocolEnum } = require('@spheron/storage');
+const IMAGE_TOKEN = process.env.IMAGE_TOKEN;
+
 const {
   createWriteStream,
   existsSync,
@@ -113,7 +117,7 @@ class NamespaceWrapper {
       return fsPromises[method](`${path}`, ...args);
     }
   }
-  async fsWriteStream(imagepath, buffer, previousImagePath) {
+  async fsWriteStream(imagepath, buffer, previousImagePath, fileName) {
     try {
       // if not img folder not exist then create it
       if (!existsSync(`namespace/${TASK_ID}/img`)) {
@@ -144,18 +148,29 @@ class NamespaceWrapper {
       writer.write(buffer);
       writer.end();
       console.log('File written successfully:', imagepath);
-      return imagepath;
+
+      // Initialize the Spheron client
+      const client = new SpheronClient({
+        token: IMAGE_TOKEN,
+      });
+
+      const { protocolLink } = await client.upload(
+        `namespace/${TASK_ID}` + imagepath,
+        {
+          protocol: ProtocolEnum.IPFS,
+          name: `image`,
+        },
+      );
+
+      const fullProtocolLink = protocolLink + fileName;
+
+      return { imagepath: imagepath, protocolLink: fullProtocolLink };
     } catch (error) {
       console.error('Error writing file:', error);
       throw error;
     }
-    // if (taskNodeAdministered) {
-    //   return await genericHandler('fsWriteStream', imagepath, buffer);
-    // } else {
-    //   const writer = createWriteStream(imagepath, buffer);
-    //   return writer;
-    // }
   }
+
   async fsReadStream(imagepath) {
     if (taskNodeAdministered) {
       return await genericHandler('fsReadStream', imagepath);
@@ -1030,15 +1045,6 @@ async function genericHandler(...args) {
     return { error: err };
   }
 }
-
-// let connection;
-// const namespaceWrapper = new NamespaceWrapper();
-// if (taskNodeAdministered) {
-//   namespaceWrapper.getRpcUrl().then(rpcUrl => {
-//     console.log(rpcUrl, 'RPC URL');
-//     connection = new Connection(rpcUrl, 'confirmed');
-//   });
-// }
 
 const namespaceWrapper = new NamespaceWrapper();
 if (taskNodeAdministered) {
