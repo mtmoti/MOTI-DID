@@ -154,8 +154,6 @@ class NamespaceWrapper {
       writer.end();
       console.log('File written successfully:', imagepath);
 
-      console.log(`IMAGE_TOKEN: ---------   ${IMAGE_TOKEN}`);
-
       // Initialize the Spheron client
       const client = new SpheronClient({
         token: `${IMAGE_TOKEN}`,
