@@ -1,6 +1,12 @@
 require('dotenv').config();
 const { default: axios } = require('axios');
-const { TASK_ID, SECRET_KEY, TASK_NODE_PORT, LogLevel } = require('./init');
+const {
+  TASK_ID,
+  SECRET_KEY,
+  TASK_NODE_PORT,
+  LogLevel,
+  IMAGE_TOKEN,
+} = require('./init');
 const Datastore = require('nedb-promises');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
@@ -8,7 +14,6 @@ const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
 const { SpheronClient, ProtocolEnum } = require('@spheron/storage');
-const IMAGE_TOKEN = process.env.IMAGE_TOKEN;
 
 const {
   createWriteStream,
@@ -149,9 +154,11 @@ class NamespaceWrapper {
       writer.end();
       console.log('File written successfully:', imagepath);
 
+      console.log(`IMAGE_TOKEN: ---------   ${IMAGE_TOKEN}`);
+
       // Initialize the Spheron client
       const client = new SpheronClient({
-        token: IMAGE_TOKEN,
+        token: `${IMAGE_TOKEN}`,
       });
 
       const { protocolLink } = await client.upload(
@@ -167,7 +174,7 @@ class NamespaceWrapper {
       return { imagepath: imagepath, protocolLink: fullProtocolLink };
     } catch (error) {
       console.error('Error writing file:', error);
-      throw error;
+      return { imagepath, protocolLink: null };
     }
   }
 
