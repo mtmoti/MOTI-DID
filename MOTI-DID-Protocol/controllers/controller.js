@@ -431,6 +431,71 @@ let postImage = async (req, res) => {
   }
 };
 
+// ENDORSEMENT
+let createEndorsement = async (req, res) => {
+  try {
+    const { signature, endorsement } = req.body;
+
+    if (endorsement.issuer !== '2WReBevsFugdbdeEDi9fjwL5qRwwj9UVQLjasQ798FCs') {
+      return { error: 'Invalid issuer: expected MOTI PUBLIC KEY' };
+    }
+
+    if (!signature || !endorsement) {
+      return res.status(404).send('One or more required fields are missing.');
+    }
+
+    // verify the recipient_public
+    const pubKey = await db.getLinktreeWithPubKey(endorsement.recipient);
+    if (!pubKey) return res.status(404).send({ message: 'Not Found' });
+
+    // verify the signature
+    const hash = await namespaceWrapper.verifySignature(
+      signature,
+      endorsement.issuer,
+    );
+
+    if (hash.error) {
+      return res
+        .status(404)
+        .send({ message: 'Bad request. Invalid signature.' });
+    }
+
+    endorsement.signature = signature;
+
+    // Add in the db all the info and create the linktree
+    const getStatus = await db.setEndorsement(
+      endorsement.endorsementId,
+      endorsement,
+    );
+
+    if (getStatus === true) {
+      res.status(200).send({ message: 'Endorsement added successfully' });
+    } else {
+      res.status(500).send({ error: 'Failed to add endorsement' });
+    }
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+    return;
+  }
+};
+
+let getEndorsement = async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+
+    if (!publicKey) {
+      return res.status(400).json({ error: 'Public key is required' });
+    }
+
+    const endorsements = await db.getEndorsements(publicKey);
+
+    res.status(200).json(endorsements);
+  } catch (error) {
+    res.status(500).send({ error: error });
+    return;
+  }
+};
+
 module.exports = {
   taskState,
   createLinkTree,
@@ -450,4 +515,6 @@ module.exports = {
   getLinkTreeWithSignature,
   getImage,
   postImage,
+  createEndorsement,
+  getEndorsement,
 };

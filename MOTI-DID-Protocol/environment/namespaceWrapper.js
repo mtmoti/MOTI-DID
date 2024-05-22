@@ -14,7 +14,6 @@ const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
 const { SpheronClient, ProtocolEnum } = require('@spheron/storage');
-
 const {
   createWriteStream,
   existsSync,
@@ -28,7 +27,7 @@ let connection;
 // NamespaceWrapper class
 class NamespaceWrapper {
   #db;
-  #testingMainSystemAccount;
+  testingMainSystemAccount;
   #testingStakingSystemAccount;
   #testingTaskState;
   #testingDistributionList;
@@ -203,7 +202,7 @@ class NamespaceWrapper {
       const msg = new TextEncoder().encode(JSON.stringify(body));
       const signedMessage = nacl.sign(
         msg,
-        this.#testingMainSystemAccount.secretKey,
+        this.testingMainSystemAccount.secretKey,
       );
       return await this.bs58Encode(signedMessage);
     }
@@ -227,31 +226,38 @@ class NamespaceWrapper {
    * Namespace wrapper of storeGetAsync
    * @param {string} signedMessage r // Path to get
    */
+  // need to changes
   async verifySignature(signedMessage, pubKey) {
-    if (taskNodeAdministered) {
-      return await genericHandler('verifySignedData', signedMessage, pubKey);
-    } else {
-      try {
-        const payload = nacl.sign.open(
-          await this.bs58Decode(signedMessage),
-          await this.bs58Decode(pubKey),
-        );
-        if (!payload) return { error: 'Invalid signature' };
-        return { data: this.decodePayload(payload) };
-      } catch (e) {
-        console.error(e);
-        return { error: `Verification failed: ${e}` };
-      }
+    if (pubKey !== '2WReBevsFugdbdeEDi9fjwL5qRwwj9UVQLjasQ798FCs') {
+      return { error: 'Invalid issuer: expected MOTI PUBLIC KEY' };
     }
+    try {
+      const payload = nacl.sign.open(
+        await this.bs58Decode(signedMessage),
+        await this.bs58Decode(pubKey),
+      );
+      if (!payload) return { error: 'Invalid signature' };
+      return { data: this.decodePayload(payload) };
+    } catch (e) {
+      console.error(e);
+      return { error: `Verification failed: ${e}` };
+    }
+    // if (taskNodeAdministered) {
+    //   return await genericHandler('verifySignedData', signedMessage, pubKey);
+    // } else {
+    //   try {
+    //     const payload = nacl.sign.open(
+    //       await this.bs58Decode(signedMessage),
+    //       await this.bs58Decode(pubKey),
+    //     );
+    //     if (!payload) return { error: 'Invalid signature' };
+    //     return { data: this.decodePayload(payload) };
+    //   } catch (e) {
+    //     console.error(e);
+    //     return { error: `Verification failed: ${e}` };
+    //   }
+    // }
   }
-
-  // async submissionOnChain(submitterKeypair, submission) {
-  //   return await genericHandler(
-  //     'submissionOnChain',
-  //     submitterKeypair,
-  //     submission,
-  //   );
-  // }
 
   async stakeOnChain(
     taskStateInfoPublicKey,
@@ -567,7 +573,7 @@ class NamespaceWrapper {
       return await genericHandler('defaultTaskSetup');
     } else {
       if (this.#testingTaskState) return;
-      this.#testingMainSystemAccount = new Keypair();
+      this.testingMainSystemAccount = new Keypair();
       this.#testingStakingSystemAccount = new Keypair();
       this.#testingDistributionList = {};
       this.#testingTaskState = {
@@ -1027,7 +1033,7 @@ class NamespaceWrapper {
     if (taskNodeAdministered) {
       return MAIN_ACCOUNT_PUBKEY;
     } else {
-      return this.#testingMainSystemAccount.publicKey.toBase58();
+      return this.testingMainSystemAccount.publicKey.toBase58();
     }
   }
 }

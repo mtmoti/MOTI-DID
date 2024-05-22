@@ -14,6 +14,12 @@ router.use((req, res, next) => {
   next();
 });
 
+// for the caching
+router.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=30, must-revalidate');
+  next();
+});
+
 router.get('/taskState', controllers.taskState);
 
 // API to register the linktree
@@ -71,6 +77,15 @@ router.get('/nodeurl', controllers.getNodeUrl);
 router.get('/img/:publicKey', controllers.getImage);
 router.post('/img/:publicKey', controllers.postImage);
 
+// ENDORSEMENT
+// post to the endorsement
+router.post('/endorsement/create', controllers.createEndorsement);
+// get from the endorsement
+router.get('/endorsement/:publicKey', controllers.getEndorsement);
+
+module.exports = router;
+
+// -----------------------------------------------------------
 // router.post('/register-authlist', async (req, res) => {
 //   const pubkey = req.body.pubkey;
 //   await db.setAuthList(pubkey);
@@ -83,5 +98,3 @@ router.post('/img/:publicKey', controllers.postImage);
 //   const log = 'Nothing to see here, check /:publicKey to get the linktree';
 //   return res.status(200).send(log);
 // });
-
-module.exports = router;

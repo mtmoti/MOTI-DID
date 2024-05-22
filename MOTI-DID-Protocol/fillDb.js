@@ -8,7 +8,8 @@
 
 // // Function to fetch JSON data from the URL and save it to a file
 // async function fetchAndSaveJson() {
-//   const url = 'https://app.moti.bio/linktree/list';
+//   const url =
+//     'https://app.moti.bio/task/7nsVgpSEfGUJTcgfc1GN2FhMRb6k3mZHXftrWdVhhPgF/linktree/list';
 //   try {
 //     const response = await axios.get(url);
 //     const jsonData = response.data;
