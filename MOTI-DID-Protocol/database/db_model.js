@@ -309,15 +309,15 @@ const getEndorsements = async publicKey => {
     const db = await namespaceWrapper.getDb();
     const endorsementRaw = await db.find({
       endorsement: { $exists: true },
+      'endorsement.recipient': publicKey,
     });
 
-    // publicKey: publicKey,
     let endorsementList = endorsementRaw.map(
-      endorsementList => endorsementList.endorsement,
+      endorsementItem => endorsementItem.endorsement,
     );
     return endorsementList;
   } catch (error) {
-    return e;
+    return error;
   }
 };
 
