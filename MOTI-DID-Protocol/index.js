@@ -53,7 +53,7 @@ async function setup() {
   // Code for the data replication among the nodes
   setInterval(() => {
     dbSharing.share();
-  }, 1 * 60 * 1000);
+  }, 3 * 60 * 1000);
 }
 
 if (taskNodeAdministered) {
