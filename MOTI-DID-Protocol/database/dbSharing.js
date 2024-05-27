@@ -3,6 +3,7 @@ const { default: axios } = require('axios');
 const db = require('./db_model');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
+const { namespaceWrapper } = require('../environment/namespaceWrapper');
 
 /**
  * @function share
@@ -51,9 +52,8 @@ const share = async () => {
 
     // for each node, get all linktrees
     for (let url of nodeUrlList) {
-      if (url === SERVICE_URL) continue;
-
       console.error(SERVICE_URL, ' === ', url);
+      if (url === SERVICE_URL) continue;
 
       const res = await axios.get(`${url}/task/${TASK_ID}/linktree/list`);
       if (res.status != 200) {
@@ -95,18 +95,65 @@ const share = async () => {
               if (!isVerified) {
                 console.warn(`${url} is not able to verify the signature`);
                 continue;
-              } else {
-                console.log('[IN DBSHARING] Signature Verified');
               }
-              console.log('Updating linktree data');
+
+              console.log('[IN DBSHARING] Signature Verified');
               let proofs = {
                 publicKey: value.publicKey,
                 signature: value.signature,
               };
-              await db.updateLinktree(value.publicKey, value);
-              await db.updateProofs(value.publicKey, proofs);
-            } else {
-              console.log('I SHOULD BE HERE ELSEEEEEE');
+
+              try {
+                const linktree_data = value.data.linktree;
+                const koii_image_path = linktree_data.koiiImagePath;
+
+                if (!koii_image_path) {
+                  console.log(
+                    `Updating linktree data && ${koii_image_path} is Image not found`,
+                  );
+                } else {
+                  const result = await axios.get(
+                    `${url}/task/${TASK_ID}/img/${value.publicKey}`,
+                    {
+                      params: { imagePath: koii_image_path },
+                    },
+                  );
+
+                  const base64Data = result.data.replace(
+                    /^data:image\/[\w.]+;base64,/,
+                    '',
+                  );
+                  const buffer = Buffer.from(base64Data, 'base64');
+                  const matches = result.data.match(
+                    /^data:image\/([\w.]+);base64,/,
+                  );
+                  if (matches && matches[1]) {
+                    matches[1] = matches[1].replace('.', '');
+                  }
+                  const extension = matches ? matches[1] : null;
+                  const fileName = `/${value.publicKey}.${extension}`;
+                  const imagePath = `/img/${value.publicKey}.${extension}`;
+
+                  console.log(
+                    `Update linktree data && ${koii_image_path} Image is found`,
+                  );
+
+                  await namespaceWrapper.fsWriteStream(
+                    imagePath,
+                    buffer,
+                    koii_image_path,
+                    fileName,
+                    false,
+                  );
+                }
+              } catch (error) {
+                console.log(
+                  `Update linktree data && ${error}: got the error with image`,
+                );
+              } finally {
+                await db.updateLinktree(value.publicKey, value);
+                await db.updateProofs(value.publicKey, proofs);
+              }
             }
           } else {
             const isVerified = nacl.sign.detached.verify(
@@ -118,15 +165,65 @@ const share = async () => {
             if (!isVerified) {
               console.warn(`${url} is not able to verify the signature`);
               continue;
-            } else {
-              console.log('[IN DBSHARING] Signature Verified');
             }
+
+            console.log('[IN DBSHARING] Signature Verified');
             let proofs = {
               publicKey: value.publicKey,
               signature: value.signature,
             };
-            await db.setLinktree(value.publicKey, value);
-            await db.setProofs(value.publicKey, proofs);
+
+            try {
+              const linktree_data = value.data.linktree;
+              const koii_image_path = linktree_data.koiiImagePath;
+
+              if (!koii_image_path) {
+                console.log(
+                  `Adding linktree data && ${koii_image_path}: Image not found`,
+                );
+              } else {
+                const result = await axios.get(
+                  `${url}/task/${TASK_ID}/img/${value.publicKey}`,
+                  {
+                    params: { imagePath: koii_image_path },
+                  },
+                );
+
+                const base64Data = result.data.replace(
+                  /^data:image\/[\w.]+;base64,/,
+                  '',
+                );
+                const buffer = Buffer.from(base64Data, 'base64');
+                const matches = result.data.match(
+                  /^data:image\/([\w.]+);base64,/,
+                );
+                if (matches && matches[1]) {
+                  matches[1] = matches[1].replace('.', '');
+                }
+                const extension = matches ? matches[1] : null;
+                const fileName = `/${value.publicKey}.${extension}`;
+                const imagePath = `/img/${value.publicKey}.${extension}`;
+
+                console.log(
+                  `Adding linktree data && ${koii_image_path}: Image is found`,
+                );
+
+                await namespaceWrapper.fsWriteStream(
+                  imagePath,
+                  buffer,
+                  '',
+                  fileName,
+                  false,
+                );
+              }
+            } catch (error) {
+              console.log(
+                `Adding linktree data && ${error}: got the error with image`,
+              );
+            } finally {
+              await db.setLinktree(value.publicKey, value);
+              await db.setProofs(value.publicKey, proofs);
+            }
           }
         } catch (e) {
           console.error('ERROR', e);

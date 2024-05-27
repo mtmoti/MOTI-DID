@@ -380,9 +380,15 @@ let postImage = async (req, res) => {
   try {
     const previousImagePath = req.body.previousImagePath;
     const imageData = req.body.imageData;
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    // replace data:image
+    const base64Data = imageData.replace(/^data:image\/[\w.]+;base64,/, '');
+    // get the buffer of base64
     const buffer = Buffer.from(base64Data, 'base64');
-    const matches = imageData.match(/^data:image\/(\w+);base64,/);
+    // get the match and update it and remove the . if present
+    const matches = imageData.match(/^data:image\/([\w.]+);base64,/);
+    if (matches && matches[1]) {
+      matches[1] = matches[1].replace('.', '');
+    }
     const extension = matches ? matches[1] : null;
     const fileName = `/${req.params.publicKey}.${extension}`;
     const imagePath = `/img/${req.params.publicKey}.${extension}`;
@@ -414,6 +420,7 @@ let postImage = async (req, res) => {
         buffer,
         '',
         fileName,
+        true,
       );
     } else {
       getImageObject = await namespaceWrapper.fsWriteStream(
@@ -421,6 +428,7 @@ let postImage = async (req, res) => {
         buffer,
         previousImagePath,
         fileName,
+        true,
       );
     }
 

@@ -1,19 +1,12 @@
 require('dotenv').config();
 const { default: axios } = require('axios');
-const {
-  TASK_ID,
-  SECRET_KEY,
-  TASK_NODE_PORT,
-  LogLevel,
-  IMAGE_TOKEN,
-} = require('./init');
+const { TASK_ID, SECRET_KEY, TASK_NODE_PORT, LogLevel } = require('./init');
 const Datastore = require('nedb-promises');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
-const { SpheronClient, ProtocolEnum } = require('@spheron/storage');
 const {
   createWriteStream,
   existsSync,
@@ -22,6 +15,8 @@ const {
   unlinkSync,
 } = require('fs');
 const { join } = require('path');
+const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
+
 let connection;
 
 // NamespaceWrapper class
@@ -121,7 +116,13 @@ class NamespaceWrapper {
       return fsPromises[method](`${path}`, ...args);
     }
   }
-  async fsWriteStream(imagepath, buffer, previousImagePath, fileName) {
+  async fsWriteStream(
+    imagepath,
+    buffer,
+    previousImagePath,
+    fileName,
+    storeInIPFS,
+  ) {
     try {
       // if not img folder not exist then create it
       if (!existsSync(`namespace/${TASK_ID}/img`)) {
@@ -151,24 +152,27 @@ class NamespaceWrapper {
       const writer = createWriteStream(`namespace/${TASK_ID}` + imagepath);
       writer.write(buffer);
       writer.end();
-      console.log('File written successfully:', imagepath);
 
-      // Initialize the Spheron client
-      const client = new SpheronClient({
-        token: `${IMAGE_TOKEN}`,
-      });
-
-      const { protocolLink } = await client.upload(
-        `namespace/${TASK_ID}` + imagepath,
-        {
-          protocol: ProtocolEnum.IPFS,
-          name: `image`,
-        },
+      console.log(
+        'File written successfully: ',
+        imagepath,
+        ': check storeInIPFS: ',
+        storeInIPFS,
       );
 
-      const fullProtocolLink = protocolLink + fileName;
+      if (storeInIPFS) {
+        // storing in the koii IPFS
+        const client = new KoiiStorageClient(undefined, undefined, true);
+        const userStaking = await namespaceWrapper.getSubmitterAccount();
+        const fileUploadResponse = await client.uploadFile(
+          `namespace/${TASK_ID}` + imagepath,
+          userStaking,
+        );
+        const fullProtocolLink = `https://ipfs-gateway.koii.live/ipfs/${fileUploadResponse.cid}${fileName}`;
+        return { imagepath: imagepath, protocolLink: fullProtocolLink };
+      }
 
-      return { imagepath: imagepath, protocolLink: fullProtocolLink };
+      return { imagepath, protocolLink: null };
     } catch (error) {
       console.error('Error writing file:', error);
       return { imagepath, protocolLink: null };
