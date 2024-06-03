@@ -470,11 +470,18 @@ let createEndorsement = async (req, res) => {
 
     endorsement.signature = signature;
 
+    let proofs = {
+      publicKey: endorsement.issuer,
+      endorsementId: endorsement.endorsementId,
+      signature: signature,
+    };
+
     // Add in the db all the info and create the linktree
     const getStatus = await db.setEndorsement(
       endorsement.endorsementId,
       endorsement,
     );
+    await db.setEndorsementProofs(endorsement.endorsementId, proofs);
 
     if (getStatus === true) {
       res.status(200).send({ message: 'Endorsement added successfully' });
@@ -504,6 +511,65 @@ let getEndorsement = async (req, res) => {
   }
 };
 
+// get all getAllEndorsement
+let getEndorsementList = async (req, res) => {
+  try {
+    const allEndorsements = await db.getAllEndorsements(true);
+    if (!allEndorsements || allEndorsements.length === 0) {
+      return res.status(404).send('No endorsement found');
+    }
+    return res.status(200).send(allEndorsements);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// delete specific endorsement with the endorsementID and nonce and recipient pub key
+let deleteEndorsement = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+
+    if (!endorsementID || endorsementID === undefined) {
+      return res.status(400).send({ message: 'Empty Parameters' });
+    }
+
+    await db.deleteEndorsement(endorsementID);
+    return res.status(200).send({ endorsementID });
+  } catch (error) {
+    console.error('Error in deleteLinkTrees:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// get all proofs endorsement
+let getAllEndorsementProofs = async (req, res) => {
+  try {
+    const endorsement = await db.getAllEndorsementProofs();
+    if (!endorsement) {
+      return res.status(404).send('Endorsement Proofs not found');
+    }
+    return res.status(200).send(endorsement);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// get proofs with the publicKey
+let getEndorsementProofsWithPublicKey = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+    const proof = await db.getEndorsementProofs(endorsementID);
+    if (!proof) {
+      return res
+        .status(404)
+        .send('Proofs not found for the provided endorsementID');
+    }
+    return res.status(200).send(proof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
 module.exports = {
   taskState,
   createLinkTree,
@@ -525,4 +591,8 @@ module.exports = {
   postImage,
   createEndorsement,
   getEndorsement,
+  getEndorsementList,
+  deleteEndorsement,
+  getAllEndorsementProofs,
+  getEndorsementProofsWithPublicKey,
 };

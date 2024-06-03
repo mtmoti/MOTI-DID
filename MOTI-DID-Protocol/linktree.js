@@ -36,26 +36,19 @@ class Linktree {
 
   // To prove work, each node will submit it's 'submission' at the end of the round, by collecting data from it's Local Database and uploading to IPFS
   generateSubmissionCID = async round => {
-    // The logic to fetch the submission values and return the cid string
-
     // fetching round number to store work accordingly
-
     console.log('***********IN FETCH SUBMISSION**************');
     // The code below shows how you can fetch your stored value from level DB
-
     let proof_cid = await db.getNodeProofCid(round); // retrieves the cid
     // console.log('Linktree proofs CID', proof_cid, 'in round', round);
-
     return proof_cid;
   };
 
   // Each submission can be validated by replicating the process of creating it
   validateSubmissionCID = async (submission_value, round) => {
-    // console.log('Received submission_value', submission_value, round);
-
-    // import the linktree validate module
+    console.log('Received submission_value', submission_value, round);
     const vote = await linktree_validate(submission_value, round);
-    // console.log('Vote', vote);
+    console.log('Vote', vote);
     return vote;
   };
 
@@ -67,11 +60,20 @@ class Linktree {
 
       let distributionList = {};
       let distributionCandidates = [];
-      let taskAccountDataJSON = await namespaceWrapper.getTaskState();
-      if (taskAccountDataJSON == null) taskAccountDataJSON = _dummyTaskState;
-
-      // console.log('Task Account Data', taskAccountDataJSON);
-
+      let taskAccountDataJSON = null;
+      let taskStakeListJSON = null;
+      try {
+        taskAccountDataJSON = await namespaceWrapper.getTaskSubmissionInfo(
+          round,
+        );
+      } catch (error) {
+        console.error('ERROR IN FETCHING TASK SUBMISSION DATA', error);
+        return distributionList;
+      }
+      if (taskAccountDataJSON == null) {
+        console.error('ERROR IN FETCHING TASK SUBMISSION DATA');
+        return distributionList;
+      }
       const submissions = taskAccountDataJSON.submissions[round];
       const submissions_audit_trigger =
         taskAccountDataJSON.submissions_audit_trigger[round];
@@ -83,6 +85,13 @@ class Linktree {
         const keys = Object.keys(submissions);
         const values = Object.values(submissions);
         const size = values.length;
+        taskStakeListJSON = await namespaceWrapper.getTaskState({
+          is_stake_list_required: true,
+        });
+        if (taskStakeListJSON == null) {
+          console.error('ERROR IN FETCHING TASK STAKING LIST');
+          return distributionList;
+        }
         // Logic for slashing the stake of the candidate who has been audited and found to be false
         for (let i = 0; i < size; i++) {
           const candidatePublicKey = keys[i];
@@ -95,7 +104,7 @@ class Linktree {
               // slash 70% of the stake as still the audit is triggered but no votes are casted
               // Note that the votes are on the basis of the submission value
               // to do so we need to fetch the stakes of the candidate from the task state
-              const stake_list = taskAccountDataJSON.stake_list;
+              const stake_list = taskStakeListJSON.stake_list;
               const candidateStake = stake_list[candidatePublicKey];
               const slashedStake = candidateStake * 0.7;
               distributionList[candidatePublicKey] = -slashedStake;
@@ -111,7 +120,7 @@ class Linktree {
                 // slash 70% of the stake as the number of false votes are more than the number of true votes
                 // Note that the votes are on the basis of the submission value
                 // to do so we need to fetch the stakes of the candidate from the task state
-                const stake_list = taskAccountDataJSON.stake_list;
+                const stake_list = taskStakeListJSON.stake_list;
                 const candidateStake = stake_list[candidatePublicKey];
                 const slashedStake = candidateStake * 0.7;
                 distributionList[candidatePublicKey] = -slashedStake;
@@ -130,16 +139,24 @@ class Linktree {
       // now distribute the rewards based on the valid submissions
       // Here it is assumed that all the nodes doing valid submission gets the same reward
 
+      // test code to generate 1001 nodes
+      // for (let i = 0; i < 1002; i++) {
+      //   distributionCandidates.push(`element ${i + 1}`);
+      // }
+
       console.log(
         'LENGTH OF DISTRIBUTION CANDIDATES',
         distributionCandidates.length,
       );
+
+      //console.log("LENGTH", distributionCandidates.length);
       console.log('Bounty Amount', taskAccountDataJSON.bounty_amount_per_round);
 
       // const reward =
       //   taskAccountDataJSON.bounty_amount_per_round /
       //   distributionCandidates.length;
-      const reward = 0.5 * LAMPORTS_PER_SOL;
+      // the reward is now fixed to 1 KOII per round per node
+      const reward = 1 * LAMPORTS_PER_SOL;
       // console.log("REWARD PER NODE IN LAMPORTS", reward);
       // console.log("REWARD RECEIVED BY EACH NODE", reward);
       if (distributionCandidates.length < 20000) {

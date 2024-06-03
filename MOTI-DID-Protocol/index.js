@@ -18,8 +18,12 @@ const {
   taskNodeAdministered,
 } = require('./environment/namespaceWrapper');
 const routes = require('./routes/route');
+let isRunning = false;
 
 async function setup() {
+  /*######################################################
+  ################## DO NOT EDIT BELOW #################
+  ######################################################*/
   console.log('setup function called');
   // Run default setup
   await namespaceWrapper.defaultTaskSetup();
@@ -49,11 +53,26 @@ async function setup() {
       console.error(e);
     }
   });
+  /*######################################################
+  ################ DO NOT EDIT ABOVE ###################
+  ######################################################*/
 
-  // Code for the data replication among the nodes
-  setInterval(() => {
-    dbSharing.share();
-  }, 3 * 60 * 1000);
+  setInterval(async () => {
+    if (isRunning) {
+      console.log('Previous execution is still running, skipping!!');
+      return;
+    }
+    isRunning = true;
+    try {
+      await Promise.all([dbSharing.share(), dbSharing.shareEndorsement()]);
+      console.log('Both functions completed successfully.');
+    } catch (error) {
+      console.error('Error running functions in parallel:', error);
+    } finally {
+      isRunning = false;
+      console.log('isRunning:: false');
+    }
+  }, 2 * 60 * 1000);
 }
 
 if (taskNodeAdministered) {

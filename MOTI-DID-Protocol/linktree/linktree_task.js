@@ -2,16 +2,16 @@ const {
   namespaceWrapper,
   taskNodeAdministered,
 } = require('../environment/namespaceWrapper');
+const { TASK_ID } = require('../environment/init');
 const dotenv = require('dotenv');
 dotenv.config();
-const { Web3Storage } = require('web3.storage');
-const storageClient = new Web3Storage({
-  token: process.env.SECRET_WEB3_STORAGE_KEY,
-});
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 const db = require('../database/db_model');
 const { Keypair } = require('@solana/web3.js'); // TEST For local testing
+// for the storage
+const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
+const { createWriteStream, existsSync, unlinkSync } = require('fs');
 
 /**
  * @function linktree_task
@@ -50,19 +50,38 @@ const main = async () => {
     node_signature: bs58.encode(signature),
   };
 
-  // upload the proofs of the linktree on web3.storage
+  // upload the proofs of the linktree on KoiiStorageClient
   try {
-    const filename = `proofs.json`;
+    // check if exists then delete it
+    if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
+      unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+    }
 
-    // Uploading the image to IPFS
-    const gameSalesJson = JSON.stringify(submission_value);
-    const file = new File([gameSalesJson], filename, {
-      type: 'application/json',
-    });
-    const proof_cid = await storageClient.put([file]);
-    console.log('User Linktrees proof uploaded to IPFS: ', proof_cid);
+    const gameSalesJson = JSON.stringify(submission_value, null, 2);
+    const buffer = Buffer.from(gameSalesJson, 'utf8');
 
-    return proof_cid;
+    const writer = createWriteStream(`namespace/${TASK_ID}/proofs.json`);
+    writer.write(buffer);
+    writer.end();
+
+    const client = new KoiiStorageClient(undefined, undefined, true);
+    const userStaking = await namespaceWrapper.getSubmitterAccount();
+    const fileUploadResponse = await client.uploadFile(
+      `namespace/${TASK_ID}/proofs.json`,
+      userStaking,
+    );
+
+    // check if exists then delete it
+    if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
+      unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+    }
+
+    console.log(
+      'User Linktrees proof uploaded to IPFS: ',
+      fileUploadResponse.cid,
+    );
+
+    return fileUploadResponse.cid;
   } catch (err) {
     console.log('Error submission_value', err);
     return null;

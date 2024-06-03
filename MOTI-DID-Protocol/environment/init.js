@@ -12,7 +12,7 @@ const LogLevel = {
 // const NODE_MODE = process.argv[5];
 const MAIN_ACCOUNT_PUBKEY = process.argv[6];
 const SECRET_KEY = process.argv[7];
-const K2_NODE_URL = process.argv[8] || 'https://k2-testnet.koii.live';
+const K2_NODE_URL = process.argv[8] || 'https://testnet.koii.network';
 const SERVICE_URL = process.argv[9];
 const STAKE = Number(process.argv[10]);
 const TASK_NODE_PORT = Number(process.argv[11]);
@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.send('Linktree is running ');
 });
 
 const _server = app.listen(EXPRESS_PORT, () => {

@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const controllers = require('../controllers/controller');
@@ -77,11 +76,25 @@ router.get('/nodeurl', controllers.getNodeUrl);
 router.get('/img/:publicKey', controllers.getImage);
 router.post('/img/:publicKey', controllers.postImage);
 
-// ENDORSEMENT
+// =============================== ENDORSEMENT  ===============================
 // post to the endorsement
 router.post('/endorsement/create', controllers.createEndorsement);
 // get from the endorsement
 router.get('/endorsement/:publicKey', controllers.getEndorsement);
+// get all endorsement
+router.get('/endorsement/list/all', controllers.getEndorsementList);
+// delete specific endorsement
+router.delete(
+  '/deleteEndorsement/:endorsementID',
+  controllers.deleteEndorsement,
+);
+// get all endorsement proofs
+router.get('/endorsement/proofs/all', controllers.getAllEndorsementProofs);
+// get proofs with the publicKey
+router.get(
+  '/endorsement/proofs/get/:endorsementID',
+  controllers.getEndorsementProofsWithPublicKey,
+);
 
 module.exports = router;
 

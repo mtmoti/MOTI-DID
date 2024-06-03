@@ -9,9 +9,11 @@ namespace/*
 config/*
 taskStateInfoKeypair.json
 localKOIIDB.db
+localENDORSEMENT.db
 .env
 .env-local
 taskStateInfoKeypair.json
 linktrees
 test/testdb
 config-task.yml
+metadata.json

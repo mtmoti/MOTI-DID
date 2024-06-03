@@ -19,7 +19,7 @@ const ethUtil = require('ethereumjs-util');
  * It will fetch the linktrees from other nodes.
  * It will then verify that the node is holding the linktree and that the signature is valid.
  */
-module.exports = async (submission_value, round) => {
+const main = async (submission_value, round) => {
   console.log('******/ Linktree CID VALIDATION Task FUNCTION /******');
   const outputraw = await dataFromCid(submission_value);
   const output = outputraw.data;
@@ -185,3 +185,5 @@ async function verifyNode(proofs_list_object, signature, publicKey) {
 async function verifySignature(message, signature, publicKey) {
   return nacl.sign.detached.verify(message, signature, publicKey);
 }
+
+module.exports = main;

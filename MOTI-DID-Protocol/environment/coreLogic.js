@@ -4,35 +4,89 @@ class CoreLogic {
   constructor() {
     this.linktree = new Linktree();
   }
-
   async task(roundNumber) {
     await this.linktree.task(roundNumber);
     return;
   }
-
+  // ===================== SUBMIT TASK (SUBMISSION) =====================
   async fetchSubmission(roundNumber) {
-    return await this.linktree.generateSubmissionCID(roundNumber);
+    try {
+      return await this.linktree.generateSubmissionCID(roundNumber);
+    } catch (err) {
+      console.log('Error', err);
+      return null;
+    }
   }
-
+  async submitTask(roundNumber) {
+    console.log('================ submitTask start ================');
+    console.log('submitTask called with round', roundNumber);
+    try {
+      console.log('inside try');
+      console.log(
+        await namespaceWrapper.getSlot(),
+        'current slot while calling submit',
+      );
+      const submission = await this.fetchSubmission(roundNumber);
+      console.log('submission::::: ', submission);
+      if (!submission) return;
+      await namespaceWrapper.checkSubmissionAndUpdateRound(
+        submission,
+        roundNumber,
+      );
+      console.log('after the submission call');
+      console.log('================ submitTask end ================');
+    } catch (error) {
+      console.log('error in submission', error);
+      console.log('================ submitTask end ================');
+    }
+  }
+  // ===================== AUDIT && validateNode =====================
+  validateNode = async (submission_value, round) => {
+    console.log('================ validateNode start ================');
+    try {
+      console.log('validateNode: ', submission_value, ' :: ', round);
+      console.log('================ validateNode end ================');
+      return await this.linktree.validateSubmissionCID(submission_value, round);
+    } catch (e) {
+      console.error(e);
+    }
+    console.log('================ validateNode end ================');
+    return false;
+  };
+  async auditTask(roundNumber) {
+    console.log('================ auditTask start ================');
+    console.log('auditTask called with round', roundNumber);
+    console.log(
+      await namespaceWrapper.getSlot(),
+      'current slot while calling auditTask',
+    );
+    const getValidateNode = this.validateNode;
+    console.log('getValidateNode :: ', getValidateNode, ' :: :: ', roundNumber);
+    await namespaceWrapper.validateAndVoteOnNodes(getValidateNode, roundNumber);
+    console.log('================ auditTask end ================');
+  }
+  async auditDistribution(roundNumber, isPreviousRoundFailed) {
+    console.log('================ auditDistribution start ================');
+    console.log('auditDistribution called with round', roundNumber);
+    await namespaceWrapper.validateAndVoteOnDistributionList(
+      this.validateDistribution,
+      roundNumber,
+      isPreviousRoundFailed,
+    );
+    console.log('================ auditDistribution end ================');
+  }
+  // ===================== Distribution =====================
   async generateDistributionList(round, _dummyTaskState) {
     return await this.linktree.generateDistribution(round, _dummyTaskState);
   }
-
-  async selectAndGenerateDistributionList(
-    round,
-    isPreviousRoundFailed = false,
-  ) {
-    await namespaceWrapper.selectAndGenerateDistributionList(
-      this.submitDistributionList,
-      round,
-      isPreviousRoundFailed,
-    );
-  }
-
   async submitDistributionList(round) {
-    console.log('SUBMIT DISTRIBUTION LIST CALLED WITH ROUND', round);
+    console.log('SubmitDistributionList called', round);
     try {
       const distributionList = await this.generateDistributionList(round);
+      if (Object.keys(distributionList).length === 0) {
+        console.log('NO DISTRIBUTION LIST GENERATED');
+        return;
+      }
       const decider = await namespaceWrapper.uploadDistributionList(
         distributionList,
         round,
@@ -47,22 +101,12 @@ class CoreLogic {
       console.log('ERROR IN SUBMIT DISTRIBUTION', err);
     }
   }
-
-  // this function is called when a node is selected to validate the submission value
-  validateNode = async (submission_value, round) => {
-    try {
-      return await this.linktree.validateSubmissionCID(submission_value, round);
-    } catch (e) {
-      console.error(e);
-    }
-    return false;
-  };
-
   async shallowEqual(parsed, generateDistributionList) {
     if (typeof parsed === 'string') {
       parsed = JSON.parse(parsed);
     }
 
+    // Normalize key quote usage for generateDistributionList
     generateDistributionList = JSON.parse(
       JSON.stringify(generateDistributionList),
     );
@@ -74,14 +118,13 @@ class CoreLogic {
       return false;
     }
     for (let key of keys1) {
-      if (object1[key] !== object2[key]) {
+      if (parsed[key] !== generateDistributionList[key]) {
         return false;
       }
     }
 
     return true;
   }
-
   validateDistribution = async (
     distributionListSubmitter,
     round,
@@ -96,7 +139,7 @@ class CoreLogic {
       );
       let fetchedDistributionList;
       if (rawDistributionList == null) {
-        fetchedDistributionList = _dummyDistributionList;
+        return true;
       } else {
         fetchedDistributionList = JSON.parse(rawDistributionList);
       }
@@ -108,6 +151,10 @@ class CoreLogic {
       );
 
       // compare distribution list
+      if (Object.keys(generateDistributionList).length === 0) {
+        console.log('UNABLE TO GENERATE DISTRIBUTION LIST');
+        return true;
+      }
 
       const parsed = fetchedDistributionList;
       // console.log(
@@ -123,52 +170,19 @@ class CoreLogic {
       return false;
     }
   };
-
-  async submitTask(roundNumber) {
-    console.log('submitTask called with round', roundNumber);
-    try {
-      console.log('inside try');
-      console.log(
-        await namespaceWrapper.getSlot(),
-        'current slot while calling submit',
-      );
-      const submission = await this.fetchSubmission(roundNumber);
-
-      if (!submission) return;
-
-      // console.log('SUBMISSION', submission);
-      // submit the submission to the K2
-      await namespaceWrapper.checkSubmissionAndUpdateRound(
-        submission,
-        roundNumber,
-      );
-      console.log('after the submission call');
-    } catch (error) {
-      console.log('error in submission', error);
-    }
-  }
-
-  async auditTask(roundNumber) {
-    console.log('auditTask called with round', roundNumber);
-    console.log(
-      await namespaceWrapper.getSlot(),
-      'current slot while calling auditTask',
-    );
-    await namespaceWrapper.validateAndVoteOnNodes(
-      this.validateNode,
-      roundNumber,
-    );
-  }
-
-  async auditDistribution(roundNumber, isPreviousRoundFailed) {
-    console.log('auditDistribution called with round', roundNumber);
-    await namespaceWrapper.validateAndVoteOnDistributionList(
-      this.validateDistribution,
-      roundNumber,
+  async selectAndGenerateDistributionList(
+    round,
+    isPreviousRoundFailed = false,
+  ) {
+    await namespaceWrapper.selectAndGenerateDistributionList(
+      this.submitDistributionList,
+      round,
       isPreviousRoundFailed,
     );
   }
 }
-const coreLogic = new CoreLogic();
 
-module.exports = coreLogic;
+const coreLogic = new CoreLogic();
+module.exports = {
+  coreLogic,
+};
