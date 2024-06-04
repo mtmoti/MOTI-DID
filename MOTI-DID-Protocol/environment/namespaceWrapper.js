@@ -7,6 +7,7 @@ const bs58 = require('bs58');
 const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
+const { createHash } = require('crypto');
 const {
   createWriteStream,
   existsSync,
@@ -16,6 +17,8 @@ const {
 } = require('fs');
 const { join } = require('path');
 const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
+
+// make an connection
 let connection;
 
 // NamespaceWrapper class

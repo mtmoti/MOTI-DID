@@ -8,6 +8,7 @@ class CoreLogic {
     await this.linktree.task(roundNumber);
     return;
   }
+
   // ===================== SUBMIT TASK (SUBMISSION) =====================
   async fetchSubmission(roundNumber) {
     try {
@@ -40,18 +41,23 @@ class CoreLogic {
       console.log('================ submitTask end ================');
     }
   }
+
   // ===================== AUDIT && validateNode =====================
   validateNode = async (submission_value, round) => {
     console.log('================ validateNode start ================');
+    let vote;
     try {
       console.log('validateNode: ', submission_value, ' :: ', round);
-      console.log('================ validateNode end ================');
-      return await this.linktree.validateSubmissionCID(submission_value, round);
+      vote = await this.linktree.validateSubmissionCID(submission_value, round);
     } catch (e) {
       console.error(e);
+      vote = false;
     }
-    console.log('================ validateNode end ================');
-    return false;
+    console.log(
+      '================ validateNode end vote ================',
+      vote,
+    );
+    return vote;
   };
   async auditTask(roundNumber) {
     console.log('================ auditTask start ================');
@@ -60,9 +66,10 @@ class CoreLogic {
       await namespaceWrapper.getSlot(),
       'current slot while calling auditTask',
     );
-    const getValidateNode = this.validateNode;
-    console.log('getValidateNode :: ', getValidateNode, ' :: :: ', roundNumber);
-    await namespaceWrapper.validateAndVoteOnNodes(getValidateNode, roundNumber);
+    await namespaceWrapper.validateAndVoteOnNodes(
+      this.validateNode,
+      roundNumber,
+    );
     console.log('================ auditTask end ================');
   }
   async auditDistribution(roundNumber, isPreviousRoundFailed) {
@@ -75,6 +82,7 @@ class CoreLogic {
     );
     console.log('================ auditDistribution end ================');
   }
+
   // ===================== Distribution =====================
   async generateDistributionList(round, _dummyTaskState) {
     return await this.linktree.generateDistribution(round, _dummyTaskState);
@@ -183,6 +191,4 @@ class CoreLogic {
 }
 
 const coreLogic = new CoreLogic();
-module.exports = {
-  coreLogic,
-};
+module.exports = coreLogic;

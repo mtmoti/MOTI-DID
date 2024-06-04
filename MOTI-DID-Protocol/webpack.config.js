@@ -16,8 +16,8 @@ module.exports = {
     __dirname: true,
   },
   output: {
-    // filename: 'main.js',
-    filename: 'bafybeidmkdrovjzp6gmmhgc5s3rbigvmpp2igxegpk3oka3kl5falntbbq.js',
+    filename: 'main.js',
+    // filename: 'bafybeidmkdrovjzp6gmmhgc5s3rbigvmpp2igxegpk3oka3kl5falntbbq.js',
     path: path.resolve(__dirname, 'dist'),
   },
 };

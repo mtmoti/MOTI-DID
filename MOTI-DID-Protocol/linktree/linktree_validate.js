@@ -20,33 +20,40 @@ const ethUtil = require('ethereumjs-util');
  * It will then verify that the node is holding the linktree and that the signature is valid.
  */
 const main = async (submission_value, round) => {
-  console.log('******/ Linktree CID VALIDATION Task FUNCTION /******');
-  const outputraw = await dataFromCid(submission_value);
-  const output = outputraw.data;
-  console.log('OUTPUT', output);
-  console.log('RESPONSE DATA length', output.proofs.length);
-  console.log('PUBLIC KEY', output.node_publicKey);
-  console.log('SIGNATURE', output.node_signature);
+  try {
+    console.log('******/ Linktree CID VALIDATION Task FUNCTION /******');
+    const outputraw = await dataFromCid(submission_value);
+    const output = await outputraw.text();
 
-  // Check that the node who submitted the proofs is a valid staked node
-  let isNode = await verifyNode(
-    output.proofs,
-    output.node_signature,
-    output.node_publicKey,
-  );
-  console.log("Is the node's signature on the CID payload correct?", isNode);
+    const jsonData = JSON.parse(output);
 
-  // check each item in the linktrees list and verify that the node is holding that payload, and the signature matches
-  let isLinktree;
-  if (output.proofs.length > 0) {
-    isLinktree = await verifyLinktrees(output.proofs);
-    console.log('IS LINKTREE True?', isLinktree);
-  } else {
-    console.log('No linktree found in round', round);
-    isLinktree = true;
+    console.log('OUTPUT', jsonData);
+    console.log('RESPONSE DATA length', jsonData.proofs.length);
+    console.log('PUBLIC KEY', jsonData.node_publicKey);
+    console.log('SIGNATURE', jsonData.node_signature);
+
+    // Check that the node who submitted the proofs is a valid staked node
+    let isNode = await verifyNode(
+      jsonData.proofs,
+      jsonData.node_signature,
+      jsonData.node_publicKey,
+    );
+    console.log("Is the node's signature on the CID payload correct?", isNode);
+
+    // check each item in the linktrees list and verify that the node is holding that payload, and the signature matches
+    let isLinktree;
+    if (jsonData.proofs.length > 0) {
+      isLinktree = await verifyLinktrees(jsonData.proofs);
+      console.log('IS LINKTREE True?', isLinktree);
+    } else {
+      console.log('No linktree found in round', round);
+      isLinktree = true;
+    }
+    if (isNode && isLinktree) return true; // if both are true, return true
+    else return false; // if one of them is false, return false
+  } catch (error) {
+    console.log('LINKTREE VALIDATE ERROR :::: ', error);
   }
-  if (isNode && isLinktree) return true; // if both are true, return true
-  else return false; // if one of them is false, return false
 };
 
 // verify the linktree signature by querying the other node to get it's copy of the linktree
