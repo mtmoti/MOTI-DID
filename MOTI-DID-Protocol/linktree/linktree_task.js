@@ -36,6 +36,12 @@ const main = async () => {
   // Get linktree list fron localdb
   const proofs_list_object = await db.getAllProofs();
 
+  // check if it empty return null
+  if (Array.isArray(proofs_list_object) && proofs_list_object.length === 0) {
+    console.log('Error submission_value');
+    return null;
+  }
+
   // Use the node's keypair to sign the linktree list
   const messageUint8Array = new Uint8Array(
     Buffer.from(JSON.stringify(proofs_list_object)),

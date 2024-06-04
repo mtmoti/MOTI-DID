@@ -25,6 +25,16 @@ const main = async (submission_value, round) => {
     const outputraw = await dataFromCid(submission_value);
     const output = outputraw;
 
+    // Check if output is empty, null, or has 0 length and return false if so
+    if (
+      !output ||
+      (Array.isArray(output) && output.length === 0) ||
+      (typeof output === 'object' && Object.keys(output).length === 0)
+    ) {
+      console.log('::::OUTPUT IS EMPTY::::');
+      return false;
+    }
+
     console.log('OUTPUT', output);
     console.log('RESPONSE DATA length', output.proofs.length);
     console.log('PUBLIC KEY', output.node_publicKey);
@@ -36,6 +46,7 @@ const main = async (submission_value, round) => {
       output.node_signature,
       output.node_publicKey,
     );
+
     console.log("Is the node's signature on the CID payload correct?", isNode);
 
     // check each item in the linktrees list and verify that the node is holding that payload, and the signature matches
@@ -51,6 +62,7 @@ const main = async (submission_value, round) => {
     else return false; // if one of them is false, return false
   } catch (error) {
     console.log('LINKTREE VALIDATE ERROR :::: ', error);
+    return false;
   }
 };
 
