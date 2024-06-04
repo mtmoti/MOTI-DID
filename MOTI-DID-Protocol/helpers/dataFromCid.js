@@ -12,7 +12,11 @@ module.exports = async cid => {
       console.log('SLASH VOTE DUE TO FAKE VALUE');
       return false;
     }
-    return res;
+
+    const getText = await res.text();
+    const jsonData = JSON.parse(getText);
+    console.log(jsonData);
+    return jsonData;
   } catch (error) {
     console.log('DATA FROM CID IS GIVING ERROR: ', error);
     console.log('VOTE FALSE');

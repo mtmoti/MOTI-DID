@@ -23,27 +23,25 @@ const main = async (submission_value, round) => {
   try {
     console.log('******/ Linktree CID VALIDATION Task FUNCTION /******');
     const outputraw = await dataFromCid(submission_value);
-    const output = await outputraw.text();
+    const output = outputraw;
 
-    const jsonData = JSON.parse(output);
-
-    console.log('OUTPUT', jsonData);
-    console.log('RESPONSE DATA length', jsonData.proofs.length);
-    console.log('PUBLIC KEY', jsonData.node_publicKey);
-    console.log('SIGNATURE', jsonData.node_signature);
+    console.log('OUTPUT', output);
+    console.log('RESPONSE DATA length', output.proofs.length);
+    console.log('PUBLIC KEY', output.node_publicKey);
+    console.log('SIGNATURE', output.node_signature);
 
     // Check that the node who submitted the proofs is a valid staked node
     let isNode = await verifyNode(
-      jsonData.proofs,
-      jsonData.node_signature,
-      jsonData.node_publicKey,
+      output.proofs,
+      output.node_signature,
+      output.node_publicKey,
     );
     console.log("Is the node's signature on the CID payload correct?", isNode);
 
     // check each item in the linktrees list and verify that the node is holding that payload, and the signature matches
     let isLinktree;
-    if (jsonData.proofs.length > 0) {
-      isLinktree = await verifyLinktrees(jsonData.proofs);
+    if (output.proofs.length > 0) {
+      isLinktree = await verifyLinktrees(output.proofs);
       console.log('IS LINKTREE True?', isLinktree);
     } else {
       console.log('No linktree found in round', round);
