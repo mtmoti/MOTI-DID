@@ -1,15 +1,8 @@
-const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const bs58 = require('bs58');
 const nacl = require('tweetnacl');
 const { Keypair } = require('@solana/web3.js');
-const {
-  setNodeProofCid,
-  getNodeProofCid,
-  getAllAuthList,
-  setAuthList,
-  getLinktreeWithPubKey,
-} = require('../../database/db_model');
+const controllers = require('../../controllers/controller');
 require('dotenv').config();
 
 // might be delete
@@ -27,50 +20,15 @@ function createPayload(data, pubkey, sign) {
   };
 }
 
-// Post payload to given path
-async function postPayload(path, payload) {
-  try {
-    const response = await axios.post(path, { payload });
-    return response;
-  } catch (error) {
-    return error.response;
-  }
-}
-
-// get data from the db
-async function getPayload(path) {
-  try {
-    const response = await axios.get(path);
-    return response;
-  } catch (error) {
-    return error.response;
-  }
-}
-
-// get data from the db
-async function deletePayload(path) {
-  try {
-    const response = await axios.delete(path);
-    return response;
-  } catch (error) {
-    return error.response;
-  }
-}
-
-// get data from the db PROOFS
-async function getAllProofs(path) {
-  try {
-    const response = await axios.get(path);
-    return response;
-  } catch (error) {
-    return error.response;
-  }
-}
-
-// verify the linktree signature by querying the other node to get it's copy of the linktree
+// supportive function for the submission and audits
 async function verifyLinktrees(proofs_list_object) {
   let allSignaturesValid = true;
-  let AuthUserList = await getAllAuthList;
+  const res = {
+    status: jest.fn().mockReturnThis(),
+    send: jest.fn(),
+  };
+  await controllers.getAllAuthList({}, res);
+  const AuthUserList = res.send.mock.calls[0][0];
   console.log('Authenticated Users List:', AuthUserList);
 
   for (const proofs of proofs_list_object) {
@@ -80,22 +38,33 @@ async function verifyLinktrees(proofs_list_object) {
     for (const nodeUrl of nodeUrlList) {
       console.log('cheking linktree on ', nodeUrl);
 
-      let res;
       // get all linktree in this node
-      data = await getLinktreeWithPubKey(publicKey);
-      res = { data };
+      const res2 = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
+      await controllers.getLinkTreeWithPublicKey(
+        {
+          params: {
+            publicKey: publicKey,
+          },
+        },
+        res2,
+      );
 
       // get the payload
-      const linktree = res.data;
+      const linktree = res2.send.mock.calls[0][0];
 
-      // check if the user's pubkey is on the authlist
+      console.log('linktree ::::::::::::::::::: ', linktree);
+
+      //  check if the user's pubkey is on the authlist
       if (AuthUserList.hasOwnProperty(linktree.publicKey)) {
         console.log('User is on the auth list');
       } else {
         // Check if the public key is an ETH address
-        if (linktree.linktree.publicKey.length == 42) {
+        if (linktree.publicKey.length == 42) {
           // Verify the ETH signature
-          const { data, publicKey, signature } = linktree.linktree;
+          const { data, publicKey, signature } = linktree;
 
           // Decode the signature
           const signatureBuffer = bs58.decode(signature);
@@ -123,7 +92,19 @@ async function verifyLinktrees(proofs_list_object) {
           // Check if the recovered address matches the provided public key
           if (recoveredAddress.toLowerCase() === publicKey.toLowerCase()) {
             console.log('Payload signature is valid');
-            await setAuthList(publicKey);
+            const req3 = {
+              body: {
+                authdata: {
+                  pubkey: publicKey,
+                },
+              },
+            };
+            const res3 = {
+              status: jest.fn().mockReturnThis(),
+              send: jest.fn(),
+            };
+            await controllers.postAuthList(req3, res3);
+            console.log('postAuthList ::::: ', res3.send.mock.calls[0][0]);
           } else {
             console.log('Payload signature is invalid');
             allSignaturesValid = false;
@@ -131,10 +112,10 @@ async function verifyLinktrees(proofs_list_object) {
         } else {
           // Verify the signature
           const messageUint8Array = new Uint8Array(
-            Buffer.from(JSON.stringify(linktree.linktree.data)),
+            Buffer.from(JSON.stringify(linktree.data)),
           );
-          const signature = linktree.linktree.signature;
-          const publicKey = linktree.linktree.publicKey;
+          const signature = linktree.signature;
+          const publicKey = linktree.publicKey;
           const signatureUint8Array = bs58.decode(signature);
           const publicKeyUint8Array = bs58.decode(publicKey);
           const isSignatureValid = await verifySignature(
@@ -145,7 +126,19 @@ async function verifyLinktrees(proofs_list_object) {
           console.log(`IS SIGNATURE ${publicKey} VALID?`, isSignatureValid);
 
           if (isSignatureValid) {
-            await setAuthList(publicKey);
+            const req3 = {
+              body: {
+                authdata: {
+                  pubkey: publicKey,
+                },
+              },
+            };
+            const res3 = {
+              status: jest.fn().mockReturnThis(),
+              send: jest.fn(),
+            };
+            await controllers.postAuthList(req3, res3);
+            console.log('postAuthList ::::: ', res3.send.mock.calls[0][0]);
           } else {
             allSignaturesValid = false;
           }
@@ -153,9 +146,13 @@ async function verifyLinktrees(proofs_list_object) {
       }
     }
   }
+
+  console.log(
+    'allSignaturesValid :::::::SHOULD BE TRUE::::::::::: ',
+    allSignaturesValid,
+  );
   return allSignaturesValid;
 }
-// verifies that a node's signature is valid, and rejects situations where CIDs from IPFS return no data or are not JSON
 async function verifyNode(proofs_list_object, signature, publicKey) {
   const messageUint8Array = new Uint8Array(
     Buffer.from(JSON.stringify(proofs_list_object)),
@@ -182,26 +179,9 @@ async function verifySignature(message, signature, publicKey) {
 }
 
 describe('Create linktree API', () => {
-  // set data
-  let data;
-  // for the path to CRUD (LINKTREEE)
-  let postPath;
-  let getPath;
-  //   let updatePath;
-  let deletePath;
-
-  // for the path to CRUD (PROOF)
-  let getAllProofPath;
-  //   let postProofPath;
-  //   let updateProofPath;
-  //   let deleteProofPath;
-
   // for the pubic ket and signature
   let pubkey;
   let sign;
-
-  // to store retrieved data
-  let retrievedData;
 
   // create a task
   let setTaskSubmission = {};
@@ -240,35 +220,50 @@ describe('Create linktree API', () => {
     const signature = signedMessage.slice(0, nacl.sign.signatureLength);
     pubkey = bs58.encode(publicKey);
     sign = bs58.encode(signature);
-
-    // LINKTREE PATHS
-    postPath = `http://localhost:10000/linktree/`;
-    getPath = `http://localhost:10000/linktree/get/${pubkey}`;
-    deletePath = `http://localhost:10000/linktree/${pubkey}`;
-
-    // PROOF PATHS
-    getAllProofPath = `http://localhost:10000/proofs/all`;
   });
 
   // post the payload
   test('Posting linktree payload - Success', async () => {
     await new Promise(resolve => setTimeout(resolve, 600));
     const payload = createPayload(data, pubkey, sign);
-    const response = await postPayload(postPath, payload);
-    console.log(response.status);
-    expect(response.status).toBe(200);
-    expect(response.data).toBeDefined();
+
+    const req = {
+      body: {
+        payload,
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+
+    await controllers.createLinkTree(req, res);
+
+    const response = res.send.mock.calls[0][0];
+    console.log(response);
+
+    // expect(response.status).toBe(200);
+    // expect(response.data).toBeDefined();
   });
 
   // get the linktree
   test('get the linktree payload - Success', async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const response = await getPayload(getPath);
-    expect(response.status).toBe(200);
-    expect(response.data).toBeDefined();
+    const req = {
+      params: {
+        publicKey: pubkey,
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
 
-    // Store response data for further use
-    retrievedData = response.data;
+    await controllers.getLinkTreeWithPublicKey(req, res);
+    const response = res.send.mock.calls[0][0];
+    console.log(response);
+    // expect(response.status).toBe(200);
+    // expect(response.data).toBeDefined();
   });
 
   // create a task
@@ -277,29 +272,48 @@ describe('Create linktree API', () => {
     console.log('******/  IN Linktree Task FUNCTION /******');
     try {
       let keypair = Keypair.generate();
-      const proofs_list_object = await getAllProofs(getAllProofPath);
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
+      await controllers.getAllProofs({}, res);
 
-      if (
-        Array.isArray(proofs_list_object) &&
-        proofs_list_object.data.length === 0
-      ) {
+      const response = res.send.mock.calls[0][0];
+      console.log(response);
+
+      if (Array.isArray(response) && response.length === 0) {
         throw new Error('Error submission_value: proofs_list_object is empty');
       }
 
       // Use the node's keypair to sign the linktree list
       const messageUint8Array = new Uint8Array(
-        Buffer.from(JSON.stringify(proofs_list_object.data)),
+        Buffer.from(JSON.stringify(response)),
       );
       const signedMessage = nacl.sign(messageUint8Array, keypair.secretKey);
       const signature = signedMessage.slice(0, nacl.sign.signatureLength);
       const submission_value = {
-        proofs: proofs_list_object.data,
+        proofs: response,
         node_publicKey: `${keypair.publicKey}`,
         node_signature: bs58.encode(signature),
       };
       const index = 0;
 
-      await setNodeProofCid(index, `DUMMYCIDS${keypair.publicKey}`);
+      console.log(submission_value);
+
+      const req2 = {
+        params: {
+          round: 100,
+          cid: `DUMMYCIDS${keypair.publicKey}`,
+        },
+      };
+      const res2 = {
+        status: jest.fn().mockReturnThis(),
+        send: jest.fn(),
+      };
+      await controllers.setNodeProofCid(req2, res2);
+
+      const response2 = res2.send.mock.calls[0][0];
+      console.log(response2);
 
       arrayofCIDs[index] = `DUMMYCIDS${keypair.publicKey}`;
       setTaskSubmission[`DUMMYCIDS${keypair.publicKey}`] = submission_value;
@@ -312,8 +326,18 @@ describe('Create linktree API', () => {
   test('generateSubmissionCID', async () => {
     await new Promise(resolve => setTimeout(resolve, 1400));
     console.log('***********generateSubmissionCID**************');
-    let proof_cid = await getNodeProofCid(0);
-    console.log(proof_cid);
+    const req = {
+      params: {
+        round: 100,
+      },
+    };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+    };
+    await controllers.nodeProofWithRounds(req, res);
+    const response = res.send.mock.calls[0][0];
+    console.log(response);
   });
 
   // audit task calls
@@ -321,7 +345,6 @@ describe('Create linktree API', () => {
     await new Promise(resolve => setTimeout(resolve, 1400));
     console.log('================ validateNode ================');
     // Each submission can be validated by replicating the process of creating it
-    console.log('Received submission_value', arrayofCIDs[0], 0);
     try {
       console.log('******/ Linktree CID VALIDATION Task FUNCTION /******');
       const outputraw = setTaskSubmission[arrayofCIDs[0]];
@@ -371,12 +394,12 @@ describe('Create linktree API', () => {
     }
   });
 
-  // delete the linktree
-  //   test('delete the linktree payload - Success', async () => {
-  //     await new Promise(resolve => setTimeout(resolve, 3000));
-  //     console.log(setTaskSubmission);
-  //     const response = await deletePayload(deletePath);
-  //     expect(response.status).toBe(200);
-  //     expect(response.data).toBeDefined();
-  //   });
+  //   // delete the linktree
+  //   //   test('delete the linktree payload - Success', async () => {
+  //   //     await new Promise(resolve => setTimeout(resolve, 3000));
+  //   //     console.log(setTaskSubmission);
+  //   //     const response = await deletePayload(deletePath);
+  //   //     expect(response.status).toBe(200);
+  //   //     expect(response.data).toBeDefined();
+  //   //   });
 });

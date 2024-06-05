@@ -266,6 +266,28 @@ let nodeProofWithRounds = async (req, res) => {
   }
 };
 
+// get node proof with rounds
+let setNodeProofCid = async (req, res) => {
+  try {
+    const { round, cid } = req.params;
+
+    if (!round || isNaN(round)) {
+      return res.status(400).send({ message: 'Invalid round parameter' });
+    }
+
+    const nodeProof = await db.setNodeProofCid(parseInt(round), cid);
+    if (!nodeProof) {
+      return res
+        .status(404)
+        .send({ message: 'Node proof CID not found for the provided round' });
+    }
+
+    return res.status(200).send(nodeProof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
 // get authList with public key
 let getAuthListWithPublicKey = async (req, res) => {
   try {
@@ -311,7 +333,6 @@ let getAllAuthList = async (req, res) => {
 
 // get the authlist and set the public key
 let postAuthList = async (req, res) => {
-  //TODO Interprete the authdata value and set the authlist
   try {
     const pubkey = req.body.authdata?.pubkey;
     if (!pubkey) {
@@ -582,6 +603,7 @@ module.exports = {
   getProofsWithUsername,
   nodeProofAll,
   nodeProofWithRounds,
+  setNodeProofCid,
   getAuthListWithPublicKey,
   getAllAuthList,
   postAuthList,
