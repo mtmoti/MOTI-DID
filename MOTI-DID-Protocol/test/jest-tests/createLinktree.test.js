@@ -98,16 +98,15 @@ async function postPayload(path, payload) {
 }
 
 describe('Create linktree API', () => {
-  let path =
-    'http://localhost:30017/task/25Tc8XLT9vMw3kRBUoc3RASVTBC2A68TucL81zmgKrRZ/linktree/';
+  let path;
 
-  // beforeAll(() => {
-  //   if (process.env.ENVIRONMENT === 'development') {
-  //     path = `http://localhost:10000/linktree/`;
-  //   } else {
-  //     path = `https://k2-tasknet-ports-2.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree`;
-  //   }
-  // });
+  beforeAll(() => {
+    if (process.env.ENVIRONMENT === 'development') {
+      path = `http://localhost:10000/linktree/`;
+    } else {
+      path = `https://k2-tasknet-ports-2.koii.live/task/HjWJmb2gcwwm99VhyNVJZir3ToAJTfUB4j7buWnMMUEP/linktree`;
+    }
+  });
 
   test('Posting linktree payload - Success', async () => {
     const payload = createPayload();
