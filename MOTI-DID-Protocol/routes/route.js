@@ -21,7 +21,7 @@ router.use((req, res, next) => {
 
 router.get('/taskState', controllers.taskState);
 
-// API to register the linktree
+// create linktree
 router.post('/linktree', controllers.createLinkTree);
 
 // get all linktree
@@ -79,7 +79,7 @@ router.post('/img/:publicKey', controllers.postImage);
 // =============================== ENDORSEMENT  ===============================
 // post to the endorsement
 router.post('/endorsement/create', controllers.createEndorsement);
-// get from the endorsement
+// get from the receipt public key for the endorsement
 router.get('/endorsement/:publicKey', controllers.getEndorsement);
 // get all endorsement
 router.get('/endorsement/list/all', controllers.getEndorsementList);
@@ -95,6 +95,22 @@ router.get(
   '/endorsement/proofs/get/:endorsementID',
   controllers.getEndorsementProofsWithPublicKey,
 );
+// get all node proof
+router.get('/endorsement/node-proof/all', controllers.nodeProofAllEndorsement);
+// get node proof with rounds
+router.get(
+  '/endorsement/node-proof/:round',
+  controllers.nodeProofWithRoundsEndorsement,
+);
+// get authList with public key
+router.get(
+  '/endorsement/authlist/get/:endorsementID',
+  controllers.getAuthListEndorsementWithPublicKey,
+);
+// get all authList
+router.get('/endorsement/authlist/list', controllers.getAllAuthListEndorsement);
+// get the authlist and set the public key
+router.post('/endorsement/authlist', controllers.postAuthListEndorsement);
 
 module.exports = router;
 

@@ -3,6 +3,7 @@ const { namespaceWrapper } = require('../environment/namespaceWrapper');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 
+// ========= LINKTREE AND TASK STAKE =========
 // take stakes
 let taskState = async (req, res) => {
   try {
@@ -17,7 +18,6 @@ let taskState = async (req, res) => {
     return;
   }
 };
-
 // create a linktree
 let createLinkTree = async (req, res) => {
   const linktree = req.body.payload;
@@ -87,7 +87,6 @@ let createLinkTree = async (req, res) => {
     console.log(e);
   }
 };
-
 // get all LinkTrees
 let getLinkTrees = async (req, res) => {
   try {
@@ -100,7 +99,6 @@ let getLinkTrees = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // delete LinkTrees with public key
 let deleteLinkTrees = async (req, res) => {
   try {
@@ -117,7 +115,6 @@ let deleteLinkTrees = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // update the linktree
 let updateLinkTree = async (req, res) => {
   const { publicKey, signature, data } = req.body.payload;
@@ -154,7 +151,6 @@ let updateLinkTree = async (req, res) => {
     return res.status(400).json({ error: 'Invalid signature' });
   }
 };
-
 // get LinkTree With PublicKey
 let getLinkTreeWithPublicKey = async (req, res) => {
   try {
@@ -170,7 +166,6 @@ let getLinkTreeWithPublicKey = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get LinkTree With username
 let getLinkTreeWithUsername = async (req, res) => {
   try {
@@ -185,7 +180,6 @@ let getLinkTreeWithUsername = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get with the signature
 let getLinkTreeWithSignature = async (req, res) => {
   try {
@@ -201,6 +195,7 @@ let getLinkTreeWithSignature = async (req, res) => {
   }
 };
 
+// ========= PROOFS AND AUTH AND NODE URL =========
 // get all proofs
 let getAllProofs = async (req, res) => {
   try {
@@ -213,7 +208,6 @@ let getAllProofs = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get proofs with the publicKey
 let getProofsWithUsername = async (req, res) => {
   try {
@@ -229,7 +223,6 @@ let getProofsWithUsername = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get all node proof
 let nodeProofAll = async (req, res) => {
   try {
@@ -243,7 +236,6 @@ let nodeProofAll = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get node proof with rounds
 let nodeProofWithRounds = async (req, res) => {
   try {
@@ -265,7 +257,6 @@ let nodeProofWithRounds = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get node proof with rounds
 let setNodeProofCid = async (req, res) => {
   try {
@@ -287,7 +278,6 @@ let setNodeProofCid = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get authList with public key
 let getAuthListWithPublicKey = async (req, res) => {
   try {
@@ -310,7 +300,6 @@ let getAuthListWithPublicKey = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get all authList
 let getAllAuthList = async (req, res) => {
   try {
@@ -330,7 +319,6 @@ let getAllAuthList = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get the authlist and set the public key
 let postAuthList = async (req, res) => {
   try {
@@ -351,7 +339,6 @@ let postAuthList = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get node url
 let getNodeUrl = async (req, res) => {
   try {
@@ -367,6 +354,7 @@ let getNodeUrl = async (req, res) => {
   }
 };
 
+// ========= IMAGES =========
 // add the image and get the image
 let getImage = async (req, res) => {
   try {
@@ -396,7 +384,6 @@ let getImage = async (req, res) => {
     return;
   }
 };
-
 let postImage = async (req, res) => {
   try {
     const previousImagePath = req.body.previousImagePath;
@@ -460,7 +447,7 @@ let postImage = async (req, res) => {
   }
 };
 
-// ENDORSEMENT
+// ========= ENDORSEMENT =========
 let createEndorsement = async (req, res) => {
   try {
     const { signature, endorsement } = req.body;
@@ -493,8 +480,9 @@ let createEndorsement = async (req, res) => {
 
     let proofs = {
       publicKey: endorsement.issuer,
+      recipient: endorsement.recipient,
+      nonce: endorsement.nonce,
       endorsementId: endorsement.endorsementId,
-      signature: signature,
     };
 
     // Add in the db all the info and create the linktree
@@ -514,7 +502,6 @@ let createEndorsement = async (req, res) => {
     return;
   }
 };
-
 let getEndorsement = async (req, res) => {
   try {
     const { publicKey } = req.params;
@@ -531,7 +518,6 @@ let getEndorsement = async (req, res) => {
     return;
   }
 };
-
 // get all getAllEndorsement
 let getEndorsementList = async (req, res) => {
   try {
@@ -544,7 +530,6 @@ let getEndorsementList = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // delete specific endorsement with the endorsementID and nonce and recipient pub key
 let deleteEndorsement = async (req, res) => {
   try {
@@ -561,7 +546,6 @@ let deleteEndorsement = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get all proofs endorsement
 let getAllEndorsementProofs = async (req, res) => {
   try {
@@ -574,8 +558,7 @@ let getAllEndorsementProofs = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
-// get proofs with the publicKey
+// get proofs with the endorsementID
 let getEndorsementProofsWithPublicKey = async (req, res) => {
   try {
     const { endorsementID } = req.params;
@@ -587,6 +570,103 @@ let getEndorsementProofsWithPublicKey = async (req, res) => {
     }
     return res.status(200).send(proof);
   } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get node proof with rounds
+let nodeProofWithRoundsEndorsement = async (req, res) => {
+  try {
+    const { round } = req.params;
+
+    if (!round || isNaN(round)) {
+      return res.status(400).send({ message: 'Invalid round parameter' });
+    }
+
+    const nodeProof = await db.getNodeProofCidEndorsement(parseInt(round));
+    if (!nodeProof) {
+      return res
+        .status(404)
+        .send({ message: 'Node proof CID not found for the provided round' });
+    }
+
+    return res.status(200).send(nodeProof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get all node proof
+let nodeProofAllEndorsement = async (req, res) => {
+  try {
+    const linktree = await db.getAllNodeProofCidsEndorsement();
+    if (!linktree) {
+      return res.status(404).send('Node proof CIDs not found');
+    }
+    return res.status(200).send(linktree);
+  } catch (error) {
+    console.error('Error in nodeProofAll:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get authList with public key
+let getAuthListEndorsementWithPublicKey = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+    if (!endorsementID) {
+      return res
+        .status(400)
+        .send({ message: 'Endorsement ID parameter is missing' });
+    }
+
+    const authlist = await db.getAuthListEndorsement(endorsementID);
+    if (!authlist) {
+      return res
+        .status(404)
+        .send({ message: 'Auth list not found for the provided public key' });
+    }
+
+    return res.status(200).send(authlist);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get all authList
+let getAllAuthListEndorsement = async (req, res) => {
+  try {
+    const authlist = await db.getAllAuthListEndorsement(false);
+
+    if (!authlist || authlist.length === 0) {
+      return res.status(404).send({ message: 'Auth list not found' });
+    }
+
+    // Processing each authUser
+    authlist.forEach(authuser => {
+      authuser = authuser.toString().split('auth_list:')[0];
+    });
+
+    return res.status(200).send(authlist);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get the authlist and set the public key
+let postAuthListEndorsement = async (req, res) => {
+  try {
+    const endorsementID = req.body.authdata?.endorsementID;
+    if (!endorsementID) {
+      return res
+        .status(400)
+        .send('endorsementID is missing in the request body');
+    }
+
+    const result = await db.setAuthListEndorsement(endorsementID);
+
+    if (result && result.success) {
+      return res.status(200).send(result.message);
+    } else {
+      return res.status(500).send('Failed to set auth list');
+    }
+  } catch (error) {
+    console.error('Error in postAuthList:', error);
     return res.status(500).send('Internal Server Error');
   }
 };
@@ -617,4 +697,9 @@ module.exports = {
   deleteEndorsement,
   getAllEndorsementProofs,
   getEndorsementProofsWithPublicKey,
+  nodeProofWithRoundsEndorsement,
+  nodeProofAllEndorsement,
+  getAuthListEndorsementWithPublicKey,
+  getAllAuthListEndorsement,
+  postAuthListEndorsement,
 };

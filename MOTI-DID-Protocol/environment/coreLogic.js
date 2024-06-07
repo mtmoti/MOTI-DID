@@ -1,11 +1,22 @@
 const { namespaceWrapper } = require('./namespaceWrapper');
-const Linktree = require('../linktree');
+const Linktree = require('../linktree/linktree');
+const Endorsement = require('../linktree/endorsement');
+
 class CoreLogic {
   constructor() {
     this.linktree = new Linktree();
+    this.endorsement = new Endorsement();
   }
+
   async task(roundNumber) {
-    await this.linktree.task(roundNumber);
+    await Promise.all([
+      this.linktree
+        .task(roundNumber)
+        .catch(error => console.error('Linktree task failed:', error)),
+      this.endorsement
+        .task(roundNumber)
+        .catch(error => console.error('Endorsement task failed:', error)),
+    ]);
     return;
   }
 
@@ -13,6 +24,14 @@ class CoreLogic {
   async fetchSubmission(roundNumber) {
     try {
       return await this.linktree.generateSubmissionCID(roundNumber);
+    } catch (err) {
+      console.log('Error', err);
+      return null;
+    }
+  }
+  async fetchSubmissionEndorsement(roundNumber) {
+    try {
+      return await this.endorsement.generateSubmissionCID(roundNumber);
     } catch (err) {
       console.log('Error', err);
       return null;
@@ -27,13 +46,35 @@ class CoreLogic {
         await namespaceWrapper.getSlot(),
         'current slot while calling submit',
       );
-      const submission = await this.fetchSubmission(roundNumber);
+
+      const submissionPromise = this.fetchSubmission(roundNumber);
+      const submissionEndorsementPromise =
+        this.fetchSubmissionEndorsement(roundNumber);
+
+      const [submission, submissionEndorsement] = await Promise.all([
+        submissionPromise,
+        submissionEndorsementPromise,
+      ]);
+
       console.log('submission::::: ', submission);
-      if (!submission) return;
-      await namespaceWrapper.checkSubmissionAndUpdateRound(
-        submission,
-        roundNumber,
-      );
+      console.log('submissionEndorsement::::: ', submissionEndorsement);
+
+      if (!submission && !submissionEndorsement) return;
+
+      if (submission) {
+        await namespaceWrapper.checkSubmissionAndUpdateRound(
+          submission,
+          roundNumber,
+        );
+      }
+
+      if (submissionEndorsement) {
+        await namespaceWrapper.checkSubmissionAndUpdateRound(
+          submissionEndorsement,
+          roundNumber,
+        );
+      }
+
       console.log('after the submission call');
       console.log('================ submitTask end ================');
     } catch (error) {
@@ -59,12 +100,35 @@ class CoreLogic {
     );
     return vote;
   };
+  validateNodeEndorsement = async (submission_value, round) => {
+    console.log('================ validateNode start ================');
+    let vote;
+    try {
+      console.log('validateNode: ', submission_value, ' :: ', round);
+      vote = await this.endorsement.validateSubmissionCID(
+        submission_value,
+        round,
+      );
+    } catch (e) {
+      console.error(e);
+      vote = false;
+    }
+    console.log(
+      '================ validateNode end vote ================',
+      vote,
+    );
+    return vote;
+  };
   async auditTask(roundNumber) {
     console.log('================ auditTask start ================');
     console.log('auditTask called with round', roundNumber);
     console.log(
       await namespaceWrapper.getSlot(),
       'current slot while calling auditTask',
+    );
+    await namespaceWrapper.validateAndVoteOnNodes(
+      this.validateNode,
+      roundNumber,
     );
     await namespaceWrapper.validateAndVoteOnNodes(
       this.validateNode,

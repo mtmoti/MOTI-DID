@@ -48,6 +48,12 @@ async function ensureIndex() {
       if (err) console.error('Index creation error:', err);
     },
   );
+  db2.ensureIndex(
+    { fieldName: 'authListId', unique: true, sparse: true },
+    function (err) {
+      if (err) console.error('Index creation error:', err);
+    },
+  );
 }
 
 module.exports = { ensureIndex };

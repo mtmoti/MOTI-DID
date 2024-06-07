@@ -1,7 +1,7 @@
-const { namespaceWrapper } = require('./environment/namespaceWrapper');
-const db = require('./database/db_model');
-const linktree_task = require('./linktree/linktree_task');
-const linktree_validate = require('./linktree/linktree_validate');
+const { namespaceWrapper } = require('../environment/namespaceWrapper');
+const db = require('../database/db_model');
+const linktree_task = require('./linktree_task');
+const linktree_validate = require('./linktree_validate');
 const { LAMPORTS_PER_SOL } = require('@_koi/web3.js');
 
 /**
@@ -26,7 +26,6 @@ class Linktree {
 
     if (proof_cid) {
       await db.setNodeProofCid(round, proof_cid); // store CID in levelDB
-      // console.log('Node Proof CID stored in round', round);
     } else {
       console.log('CID NOT FOUND');
     }

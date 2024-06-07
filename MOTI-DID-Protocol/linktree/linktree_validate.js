@@ -68,12 +68,12 @@ const main = async (submission_value, round) => {
 
 // verify the linktree signature by querying the other node to get it's copy of the linktree
 async function verifyLinktrees(proofs_list_object) {
+  console.log('******/ verifyLinktrees START /******');
   let allSignaturesValid = true;
   let AuthUserList = await db.getAllAuthList();
   console.log('Authenticated Users List:', AuthUserList);
 
   for (const proofs of proofs_list_object) {
-    console.log(proofs);
     let publicKey = proofs.publicKey;
 
     // call other nodes to get the node list
@@ -86,7 +86,7 @@ async function verifyLinktrees(proofs_list_object) {
 
     // verify the signature of the linktree for each nodes
     for (const nodeUrl of nodeUrlList) {
-      console.log('cheking linktree on ', nodeUrl);
+      console.log('checking linktree on ', nodeUrl);
 
       let res;
       // get all linktree in this node
@@ -100,22 +100,25 @@ async function verifyLinktrees(proofs_list_object) {
           continue;
         }
       } else {
-        // TEST hardcode the node endpoint
-        data = await db.getLinktree(publicKey);
-        res = { data };
+        res = await db.getLinktreeWithPubKey(publicKey);
       }
 
       // get the payload
-      const linktree = res.data;
+      const linktree = res;
+
+      let AuthUserListFound =
+        AuthUserList && AuthUserList.includes(linktree.publicKey);
+
+      console.log('AuthUserListFound ::::::::::::::::::: ', AuthUserListFound);
 
       // check if the user's pubkey is on the authlist
-      if (AuthUserList.hasOwnProperty(linktree.publicKey)) {
-        console.log('User is on the auth list');
+      if (AuthUserListFound) {
+        console.log('User is on the auth list yay');
       } else {
         // Check if the public key is an ETH address
         if (linktree.publicKey.length == 42) {
           // Verify the ETH signature
-          const { data, publicKey, signature } = payload;
+          const { data, publicKey, signature } = linktree;
 
           // Decode the signature
           const signatureBuffer = bs58.decode(signature);
@@ -173,6 +176,8 @@ async function verifyLinktrees(proofs_list_object) {
       }
     }
   }
+
+  console.log('******/ verifyLinktrees END /******');
   return allSignaturesValid;
 }
 
