@@ -318,6 +318,13 @@ const shareEndorsement = async () => {
                 value.recipient,
               );
 
+              let proofs = {
+                publicKey: value.issuer,
+                recipient: value.recipient,
+                nonce: value.nonce,
+                endorsementId: value.endorsementId,
+              };
+
               try {
                 const getEndorsementImage = value.meta.koiiImage;
                 if (!getEndorsementImage) {
@@ -358,6 +365,7 @@ const shareEndorsement = async () => {
                 );
               } finally {
                 await db.setEndorsement(value.endorsementId, value);
+                await db.setEndorsementProofs(value.endorsementId, proofs);
               }
             } else {
               console.log(
