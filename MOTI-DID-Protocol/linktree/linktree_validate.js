@@ -7,7 +7,7 @@ const db = require('../database/db_model');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 const { default: axios } = require('axios');
-const { TASK_ID } = require('../environment/init');
+const { TASK_ID, SERVICE_URL } = require('../environment/init');
 const Web3 = require('web3');
 const web3 = new Web3();
 const ethUtil = require('ethereumjs-util');
@@ -68,117 +68,146 @@ const main = async (submission_value, round) => {
 
 // verify the linktree signature by querying the other node to get it's copy of the linktree
 async function verifyLinktrees(proofs_list_object) {
-  console.log('******/ verifyLinktrees START /******');
-  let allSignaturesValid = true;
-  let AuthUserList = await db.getAllAuthList();
-  console.log('Authenticated Users List:', AuthUserList);
+  try {
+    console.log('******/ verifyLinktrees START /******');
+    let allSignaturesValid = true;
+    let AuthUserList = await db.getAllAuthList();
+    console.log('Authenticated Users List:', AuthUserList);
 
-  for (const proofs of proofs_list_object) {
-    let publicKey = proofs.publicKey;
+    for (const proofs of proofs_list_object) {
+      let publicKey = proofs.publicKey;
 
-    // call other nodes to get the node list
-    let nodeUrlList;
-    if (taskNodeAdministered) {
-      nodeUrlList = await namespaceWrapper.getNodes();
-    } else {
-      nodeUrlList = ['http://localhost:10000'];
-    }
-
-    // verify the signature of the linktree for each nodes
-    for (const nodeUrl of nodeUrlList) {
-      console.log('checking linktree on ', nodeUrl);
-
-      let res;
-      // get all linktree in this node
+      // call other nodes to get the node list
+      let nodeUrlList;
       if (taskNodeAdministered) {
-        res = await axios.get(
-          `${nodeUrl}/task/${TASK_ID}/linktree/get/${publicKey}`,
-        );
-        // check node's status
-        if (res.status != 200) {
-          console.error('ERROR', res.status);
+        const nodesUrl = `${SERVICE_URL}/nodes/${TASK_ID}`;
+        const nodesUrlRes = await axios.get(nodesUrl);
+        if (nodesUrlRes.status != 200) {
+          console.error('verifyLinktrees Error', nodesUrlRes.status);
           continue;
         }
+        if (!nodesUrlRes.data) {
+          console.error('verifyLinktrees No valid nodes running');
+          continue;
+        }
+        nodeUrlList = nodesUrlRes.data.map(e => {
+          return e.data.url;
+        });
+        console.log('nodeUrlList.length :::: ', nodeUrlList.length);
+        if (nodeUrlList.length > 3) {
+          const shuffledArray = nodeUrlList.sort(() => Math.random() - 0.5);
+          nodeUrlList = shuffledArray.slice(0, 3);
+        }
       } else {
-        res = await db.getLinktreeWithPubKey(publicKey);
+        nodeUrlList = ['http://localhost:10000'];
       }
 
-      // get the payload
-      const linktree = res;
+      // verify the signature of the linktree for each nodes
+      for (const nodeUrl of nodeUrlList) {
+        console.error(SERVICE_URL, ' = verifyLinktrees = ', nodeUrl);
+        if (nodeUrl === SERVICE_URL) continue;
 
-      let AuthUserListFound =
-        AuthUserList && AuthUserList.includes(linktree.publicKey);
+        console.log('checking linktree on ', nodeUrl);
 
-      console.log('AuthUserListFound ::::::::::::::::::: ', AuthUserListFound);
-
-      // check if the user's pubkey is on the authlist
-      if (AuthUserListFound) {
-        console.log('User is on the auth list yay');
-      } else {
-        // Check if the public key is an ETH address
-        if (linktree.publicKey.length == 42) {
-          // Verify the ETH signature
-          const { data, publicKey, signature } = linktree;
-
-          // Decode the signature
-          const signatureBuffer = bs58.decode(signature);
-          const r = signatureBuffer.slice(0, 32);
-          const s = signatureBuffer.slice(32, 64);
-          const v = signatureBuffer.slice(64);
-
-          // Hash the message
-          const message = JSON.stringify(data);
-          const messageHash = web3.utils.keccak256(message);
-
-          // Recover the signer's public key
-          const publicKeyRecovered = ethUtil.ecrecover(
-            ethUtil.toBuffer(messageHash),
-            v[0],
-            r,
-            s,
+        let res;
+        // get all linktree in this node
+        if (taskNodeAdministered) {
+          res = await axios.get(
+            `${nodeUrl}/task/${TASK_ID}/linktree/get/${publicKey}`,
           );
-
-          // Convert the recovered public key to an Ethereum address
-          const recoveredAddress = ethUtil.bufferToHex(
-            ethUtil.pubToAddress(publicKeyRecovered),
-          );
-
-          // Check if the recovered address matches the provided public key
-          if (recoveredAddress.toLowerCase() === publicKey.toLowerCase()) {
-            console.log('Payload signature is valid');
-            await db.setAuthList(publicKey);
-          } else {
-            console.log('Payload signature is invalid');
-            allSignaturesValid = false;
+          // check node's status
+          if (res.status != 200) {
+            console.error('ERROR', res.status);
+            continue;
           }
         } else {
-          // Verify the signature
-          const messageUint8Array = new Uint8Array(
-            Buffer.from(JSON.stringify(linktree.data)),
-          );
-          const signature = linktree.signature;
-          const publicKey = linktree.publicKey;
-          const signatureUint8Array = bs58.decode(signature);
-          const publicKeyUint8Array = bs58.decode(publicKey);
-          const isSignatureValid = await verifySignature(
-            messageUint8Array,
-            signatureUint8Array,
-            publicKeyUint8Array,
-          );
-          console.log(`IS SIGNATURE ${publicKey} VALID?`, isSignatureValid);
+          res = await db.getLinktreeWithPubKey(publicKey);
+        }
 
-          if (isSignatureValid) {
-            await db.setAuthList(publicKey);
+        // get the payload
+        const linktree = res.data;
+
+        let AuthUserListFound =
+          AuthUserList && AuthUserList.includes(linktree.publicKey);
+
+        console.log(
+          'AuthUserListFound ::::::::::::::::::: ',
+          AuthUserListFound,
+        );
+
+        // check if the user's pubkey is on the authlist
+        if (AuthUserListFound) {
+          console.log('User is on the auth list yay');
+        } else {
+          // Check if the public key is an ETH address
+          if (linktree.publicKey.length == 42) {
+            // Verify the ETH signature
+            const { data, publicKey, signature } = linktree;
+
+            // Decode the signature
+            const signatureBuffer = bs58.decode(signature);
+            const r = signatureBuffer.slice(0, 32);
+            const s = signatureBuffer.slice(32, 64);
+            const v = signatureBuffer.slice(64);
+
+            // Hash the message
+            const message = JSON.stringify(data);
+            const messageHash = web3.utils.keccak256(message);
+
+            // Recover the signer's public key
+            const publicKeyRecovered = ethUtil.ecrecover(
+              ethUtil.toBuffer(messageHash),
+              v[0],
+              r,
+              s,
+            );
+
+            // Convert the recovered public key to an Ethereum address
+            const recoveredAddress = ethUtil.bufferToHex(
+              ethUtil.pubToAddress(publicKeyRecovered),
+            );
+
+            // Check if the recovered address matches the provided public key
+            if (recoveredAddress.toLowerCase() === publicKey.toLowerCase()) {
+              console.log('Payload signature is valid');
+              await db.setAuthList(publicKey);
+            } else {
+              console.log('Payload signature is invalid');
+              allSignaturesValid = false;
+            }
           } else {
-            allSignaturesValid = false;
+            // Verify the signature
+            const messageUint8Array = new Uint8Array(
+              Buffer.from(JSON.stringify(linktree.data)),
+            );
+            const signature = linktree.signature;
+            const publicKey = linktree.publicKey;
+            const signatureUint8Array = bs58.decode(signature);
+            const publicKeyUint8Array = bs58.decode(publicKey);
+            const isSignatureValid = await verifySignature(
+              messageUint8Array,
+              signatureUint8Array,
+              publicKeyUint8Array,
+            );
+            console.log(`IS SIGNATURE ${publicKey} VALID?`, isSignatureValid);
+
+            if (isSignatureValid) {
+              await db.setAuthList(publicKey);
+            } else {
+              allSignaturesValid = false;
+            }
           }
         }
       }
     }
-  }
 
-  console.log('******/ verifyLinktrees END /******');
-  return allSignaturesValid;
+    console.log('******/ verifyLinktrees END /******');
+    return allSignaturesValid;
+  } catch (error) {
+    console.log('ERROR IN FETCHING OR SOMETHING ELSE', error);
+    console.log('******/ verifyLinktrees END /******');
+    return false;
+  }
 }
 
 // verifies that a node's signature is valid, and rejects situations where CIDs from IPFS return no data or are not JSON

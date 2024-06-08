@@ -527,14 +527,6 @@ class NamespaceWrapper {
     }
   }
 
-  async nodeSelectionDistributionList() {
-    if (taskNodeAdministered) {
-      return await genericHandler('nodeSelectionDistributionList');
-    } else {
-      return this.#testingStakingSystemAccount.publicKey.toBase58();
-    }
-  }
-
   async distributionListSubmissionOnChain(round) {
     if (taskNodeAdministered) {
       return await genericHandler('distributionListSubmissionOnChain', round);
@@ -645,15 +637,12 @@ class NamespaceWrapper {
     }
   }
 
-  async nodeSelectionDistributionList(round) {
-    return await genericHandler('nodeSelectionDistributionList', round);
-  }
-
-  async getTaskSubmissionInfo(round) {
+  async getTaskSubmissionInfo(round, forcefetch = false) {
     if (taskNodeAdministered) {
       const taskSubmissionInfo = await genericHandler(
         'getTaskSubmissionInfo',
         round,
+        forcefetch,
       );
       if (!taskSubmissionInfo || taskSubmissionInfo.error) {
         return null;
@@ -666,6 +655,7 @@ class NamespaceWrapper {
 
   async validateAndVoteOnNodes(validate, round) {
     console.log('******/  IN VOTING /******');
+
     let taskAccountDataJSON = null;
     try {
       taskAccountDataJSON = await this.getTaskSubmissionInfo(round);
@@ -704,7 +694,7 @@ class NamespaceWrapper {
             //   values[i].submission_value,
             // );
             isValid = await validate(values[i].submission_value, round);
-            // console.log(`Voting ${isValid} to ${candidatePublicKey}`);
+            console.log(`Voting ${isValid} to ${candidatePublicKey}`);
 
             if (isValid) {
               // check for the submissions_audit_trigger , if it exists then vote true on that otherwise do nothing
@@ -770,6 +760,12 @@ class NamespaceWrapper {
     // await this.checkVoteStatus();
     console.log('******/  IN VOTING OF DISTRIBUTION LIST /******');
 
+    let tasknodeVersionSatisfied = false;
+    const taskNodeVersion = await this.getTaskNodeVersion();
+    if (semver.gte(taskNodeVersion, '1.11.19')) {
+      tasknodeVersionSatisfied = true;
+    }
+
     let taskAccountDataJSON = null;
     try {
       taskAccountDataJSON = await this.getTaskDistributionInfo(round);
@@ -826,6 +822,7 @@ class NamespaceWrapper {
           //   'DISTRIBUTION SUBMISSION VALUE TO CHECK',
           //   values[i].submission_value,
           // );
+          console.log('VOTING ON DISTRIBUTION LIST');
           isValid = await validateDistribution(
             values[i].submission_value,
             round,
@@ -860,7 +857,7 @@ class NamespaceWrapper {
                 response,
               );
             }
-          } else if (isValid == false) {
+          } else if (isValid == false && tasknodeVersionSatisfied) {
             // Call auditSubmission function and isValid is passed as false
             console.log('RAISING AUDIT / VOTING FALSE ON DISTRIBUTION');
             const response = await this.distributionListAuditSubmission(
@@ -911,10 +908,23 @@ class NamespaceWrapper {
     }
   }
 
+  async getTaskNodeVersion() {
+    if (taskNodeAdministered) {
+      try {
+        return await genericHandler('getTaskNodeVersion');
+      } catch (error) {
+        console.error('Error getting task node version', error);
+        return;
+      }
+    } else {
+      return '1.11.19';
+    }
+  }
+
   async nodeSelectionDistributionList(round, isPreviousFailed) {
     let taskAccountDataJSON = null;
     try {
-      taskAccountDataJSON = await this.getTaskSubmissionInfo(round);
+      taskAccountDataJSON = await this.getTaskSubmissionInfo(round, true);
     } catch (error) {
       console.error('Task submission not found', error);
       return;
@@ -941,7 +951,7 @@ class NamespaceWrapper {
         } else {
           let roundSubmissions = null;
           try {
-            roundSubmissions = await this.getTaskSubmissionInfo(r);
+            roundSubmissions = await this.getTaskSubmissionInfo(r, true);
             if (roundSubmissions && roundSubmissions.submissions[r]) {
               return new Set(Object.keys(roundSubmissions.submissions[r]));
             }

@@ -74,11 +74,11 @@ const share = async () => {
             return e.data.uuid == value.data.uuid;
           });
           if (localExistingLinktree) {
-            console.log(
-              localExistingLinktree.data.timestamp,
-              ' <<<<< ',
-              value.data.timestamp,
-            );
+            // console.log(
+            //   localExistingLinktree.data.timestamp,
+            //   ' <<<<< ',
+            //   value.data.timestamp,
+            // );
             if (localExistingLinktree.data.timestamp < value.data.timestamp) {
               console.log('IN THE localExistingLinktree');
 

@@ -64,6 +64,7 @@ class Linktree {
       try {
         taskAccountDataJSON = await namespaceWrapper.getTaskSubmissionInfo(
           round,
+          true,
         );
       } catch (error) {
         console.error('ERROR IN FETCHING TASK SUBMISSION DATA', error);

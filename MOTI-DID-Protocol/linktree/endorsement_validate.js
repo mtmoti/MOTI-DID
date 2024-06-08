@@ -6,7 +6,7 @@ const db = require('../database/db_model');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 const { default: axios } = require('axios');
-const { TASK_ID } = require('../environment/init');
+const { TASK_ID, SERVICE_URL } = require('../environment/init');
 const Web3 = require('web3');
 const web3 = new Web3();
 const ethUtil = require('ethereumjs-util');
@@ -71,86 +71,114 @@ const main = async (submission_value, round) => {
 
 // verify the endorsement signature by querying the other node to get it's copy of the endorsement
 async function verifyEndorsements(proofs_list_object) {
-  console.log('******/ verifyEndorsements START /******');
-  let allSignaturesValid = true;
-  let AuthUserList = await db.getAllAuthListEndorsement();
-  console.log('Authenticated Users List:', AuthUserList);
+  try {
+    console.log('******/ verifyEndorsements START /******');
+    let allSignaturesValid = true;
+    let AuthUserList = await db.getAllAuthListEndorsement();
+    console.log('Authenticated Users List:', AuthUserList);
 
-  for (const proofs of proofs_list_object) {
-    let recipient = proofs.recipient;
+    for (const proofs of proofs_list_object) {
+      let recipient = proofs.recipient;
 
-    // call other nodes to get the node list
-    let nodeUrlList;
-    if (taskNodeAdministered) {
-      nodeUrlList = await namespaceWrapper.getNodes();
-    } else {
-      nodeUrlList = ['http://localhost:10000'];
-    }
-
-    // verify the signature of the endorsement for each nodes
-    for (const nodeUrl of nodeUrlList) {
-      console.log('checking endorsement on ', nodeUrl);
-
-      let res;
-      // get all endorsement in this node
+      // call other nodes to get the node list
+      let nodeUrlList;
       if (taskNodeAdministered) {
-        res = await axios.get(
-          `${nodeUrl}/task/${TASK_ID}/endorsement/${recipient}`,
-        );
-        if (res.status != 200) {
-          console.error('ERROR', res.status);
+        const nodesUrl = `${SERVICE_URL}/nodes/${TASK_ID}`;
+        const nodesUrlRes = await axios.get(nodesUrl);
+        if (nodesUrlRes.status != 200) {
+          console.error('verifyEndorsements Error', nodesUrlRes.status);
           continue;
+        }
+        if (!nodesUrlRes.data) {
+          console.error('verifyEndorsements No valid nodes running');
+          continue;
+        }
+        nodeUrlList = nodesUrlRes.data.map(e => {
+          return e.data.url;
+        });
+
+        console.log('nodeUrlList.length :::: ', nodeUrlList.length);
+        if (nodeUrlList.length > 3) {
+          const shuffledArray = nodeUrlList.sort(() => Math.random() - 0.5);
+          nodeUrlList = shuffledArray.slice(0, 3);
         }
       } else {
-        res = await db.getEndorsements(recipient);
-        if (res.status != 200) {
-          console.error('ERROR', res.status);
-          continue;
+        nodeUrlList = ['http://localhost:10000'];
+      }
+
+      // verify the signature of the endorsement for each nodes
+      for (const nodeUrl of nodeUrlList) {
+        console.error(SERVICE_URL, ' = verifyEndorsements = ', nodeUrl);
+        if (nodeUrl === SERVICE_URL) continue;
+
+        console.log('checking endorsement on ', nodeUrl);
+
+        let res;
+        // get all endorsement in this node
+        if (taskNodeAdministered) {
+          res = await axios.get(
+            `${nodeUrl}/task/${TASK_ID}/endorsement/${recipient}`,
+          );
+          if (res.status != 200) {
+            console.error('ERROR', res.status);
+            continue;
+          }
+        } else {
+          res = await db.getEndorsements(recipient);
+          if (res.status != 200) {
+            console.error('ERROR', res.status);
+            continue;
+          }
+        }
+
+        // get the payload
+        const endorsement = res.data;
+
+        if (endorsement.length > 0) {
+          endorsement.forEach(async endorsementObj => {
+            if (endorsementObj.endorsementId) {
+              console.log(endorsementObj.endorsementId);
+
+              let AuthUserListFound =
+                AuthUserList &&
+                AuthUserList.includes(endorsementObj.endorsementId);
+
+              if (AuthUserListFound) {
+                console.log('User is on the auth list endorsement Obj');
+              } else {
+                // Verify the signature
+                const payload = nacl.sign.open(
+                  await namespaceWrapper.bs58Decode(endorsementObj.signature),
+                  await namespaceWrapper.bs58Decode(endorsementObj.issuer),
+                );
+                // decode it
+                const getDecodeSignature = JSON.parse(
+                  new TextDecoder().decode(payload),
+                );
+
+                if (getDecodeSignature.recipient === endorsementObj.recipient) {
+                  console.log(`hash SIGNATURE endorsementId`, true);
+                  await db.setAuthListEndorsement(endorsementObj.endorsementId);
+                } else {
+                  console.log(`allSignaturesValid = false;`);
+                  allSignaturesValid = false;
+                }
+              }
+            } else {
+              console.log('endorsementId is not found');
+            }
+          });
         }
       }
-
-      // get the payload
-      const endorsement = res;
-      if (endorsement.length > 0) {
-        endorsement.forEach(async endorsementObj => {
-          if (endorsementObj.endorsementId) {
-            console.log(endorsementObj.endorsementId);
-
-            let AuthUserListFound =
-              AuthUserList &&
-              AuthUserList.includes(endorsementObj.endorsementId);
-
-            if (AuthUserListFound) {
-              console.log('User is on the auth list endorsement Obj');
-            } else {
-              // Verify the signature
-              const payload = nacl.sign.open(
-                await namespaceWrapper.bs58Decode(endorsementObj.signature),
-                await namespaceWrapper.bs58Decode(endorsementObj.issuer),
-              );
-              // decode it
-              const getDecodeSignature = JSON.parse(
-                new TextDecoder().decode(payload),
-              );
-
-              if (getDecodeSignature.recipient === endorsementObj.recipient) {
-                console.log(`hash SIGNATURE endorsementId`, true);
-                await db.setAuthListEndorsement(endorsementObj.endorsementId);
-              } else {
-                console.log(`allSignaturesValid = false;`);
-                allSignaturesValid = false;
-              }
-            }
-          } else {
-            console.log('endorsementId is not found');
-          }
-        });
-      }
     }
-  }
 
-  console.log('******/ verifyEndorsements END /******');
-  return allSignaturesValid;
+    console.log('******/ verifyEndorsements END /******');
+    return allSignaturesValid;
+  } catch (error) {
+    console.log('ERROR IN FETCHING OR SOMETHING ELSE', error);
+    console.log('******/ verifyEndorsements END /******');
+    return false;
+  }
 }
 
 // verifies that a node's signature is valid, and rejects situations where CIDs from IPFS return no data or are not JSON

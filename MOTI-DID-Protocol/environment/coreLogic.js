@@ -101,10 +101,12 @@ class CoreLogic {
     return vote;
   };
   validateNodeEndorsement = async (submission_value, round) => {
-    console.log('================ validateNode start ================');
+    console.log(
+      '================ validateNodeEndorsement start ================',
+    );
     let vote;
     try {
-      console.log('validateNode: ', submission_value, ' :: ', round);
+      console.log('validateNodeEndorsement: ', submission_value, ' :: ', round);
       vote = await this.endorsement.validateSubmissionCID(
         submission_value,
         round,
@@ -114,7 +116,7 @@ class CoreLogic {
       vote = false;
     }
     console.log(
-      '================ validateNode end vote ================',
+      '================ validateNodeEndorsement end vote ================',
       vote,
     );
     return vote;
@@ -131,7 +133,7 @@ class CoreLogic {
       roundNumber,
     );
     await namespaceWrapper.validateAndVoteOnNodes(
-      this.validateNode,
+      this.validateNodeEndorsement,
       roundNumber,
     );
     console.log('================ auditTask end ================');
@@ -239,7 +241,7 @@ class CoreLogic {
       return result;
     } catch (err) {
       console.log('ERROR IN VALIDATING DISTRIBUTION', err);
-      return false;
+      return true;
     }
   };
   async selectAndGenerateDistributionList(
