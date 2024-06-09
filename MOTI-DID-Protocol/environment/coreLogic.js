@@ -1,6 +1,13 @@
+const dotenv = require('dotenv');
+dotenv.config();
 const { namespaceWrapper } = require('./namespaceWrapper');
 const Linktree = require('../linktree/linktree');
 const Endorsement = require('../linktree/endorsement');
+// for the storage
+const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
+const { createWriteStream, existsSync, unlinkSync } = require('fs');
+const { TASK_ID } = require('./init');
+const db = require('../database/db_model');
 
 class CoreLogic {
   constructor() {
@@ -9,14 +16,85 @@ class CoreLogic {
   }
 
   async task(roundNumber) {
-    await Promise.all([
-      this.linktree
-        .task(roundNumber)
-        .catch(error => console.error('Linktree task failed:', error)),
-      this.endorsement
-        .task(roundNumber)
-        .catch(error => console.error('Endorsement task failed:', error)),
+    // get the json linktree
+    const linktreePromise = this.linktree.task().catch(error => {
+      console.error('Linktree task failed:', error);
+      return {};
+    });
+
+    // get the json of the endorsement
+    const endorsementPromise = this.endorsement.task().catch(error => {
+      console.error('Endorsement task failed:', error);
+      return {};
+    });
+
+    // wait to get the both of the result
+    const [linktreeResult, endorsementResult] = await Promise.all([
+      linktreePromise,
+      endorsementPromise,
     ]);
+
+    // if both are empty then just return it
+    if (
+      Object.keys(linktreeResult).length === 0 &&
+      Object.keys(endorsementResult).length === 0
+    ) {
+      return;
+    }
+
+    // get result and Create a 1 json object for both the results
+    const combinedJson = {
+      linktree: linktreeResult,
+      endorsement: endorsementResult,
+    };
+
+    // update to the ipfs an object of the linktree and Endorsement on KoiiStorageClient
+    let fileUploadResponseCID;
+    try {
+      // check if exists then delete the file
+      if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
+        unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+      }
+
+      const gameSalesJson = JSON.stringify(combinedJson, null, 2);
+      const buffer = Buffer.from(gameSalesJson, 'utf8');
+
+      // create the path and write a file
+      const writer = createWriteStream(`namespace/${TASK_ID}/proofs.json`);
+      writer.write(buffer);
+      writer.end();
+
+      const client = new KoiiStorageClient(undefined, undefined, true);
+      const userStaking = await namespaceWrapper.getSubmitterAccount();
+      const fileUploadResponse = await client.uploadFile(
+        `namespace/${TASK_ID}/proofs.json`,
+        userStaking,
+      );
+
+      // check if exists then delete it
+      if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
+        unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+      }
+
+      console.log('User proof uploaded to IPFS: ', fileUploadResponse.cid);
+
+      fileUploadResponseCID = fileUploadResponse.cid;
+    } catch (err) {
+      console.log('Error submission_value', err);
+      fileUploadResponseCID = '';
+    }
+
+    if (fileUploadResponseCID && fileUploadResponseCID.length > 0) {
+      console.log('User proof uploaded to IPFS: ', fileUploadResponseCID);
+
+      // store CID in levelDB
+      await Promise.all([
+        db.setNodeProofCid(roundNumber, fileUploadResponseCID),
+        db.setNodeProofCidEndorsement(roundNumber, fileUploadResponseCID),
+      ]);
+    } else {
+      console.log('CID NOT FOUND LINKTREE OR Endorsement FOR THE TASK');
+    }
     return;
   }
 

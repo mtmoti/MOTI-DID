@@ -16,15 +16,11 @@ const Endorsement_validate = require('./endorsement_validate');
  * */
 class Endorsement {
   // Tasks produce submissions and log them to a LOCAL database
-  task = async round => {
+  task = async () => {
     console.log('*********task() started Endorsement*********');
-    const proof_cid = await Endorsement_task();
-    if (proof_cid) {
-      await db.setNodeProofCidEndorsement(round, proof_cid);
-    } else {
-      console.log('CID NOT FOUND Endorsement');
-    }
+    const endorsementJson = await Endorsement_task();
     console.log('*********task() completed Endorsement*********');
+    return endorsementJson;
   };
 
   // To prove work, each node will submit it's 'submission' at the end of the round, by collecting data from it's Local Database and uploading to IPFS

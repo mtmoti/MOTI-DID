@@ -38,10 +38,10 @@
     web3.storage "^4.4.0"
     yaml "^1.10.2"
 
-"@_koii/storage-task-sdk@^1.2.5":
-  version "1.2.5"
-  resolved "https://registry.npmjs.org/@_koii/storage-task-sdk/-/storage-task-sdk-1.2.5.tgz"
-  integrity sha512-UVNkLYTELHTWgZiv6+7kroughiXFj62O1NvR+nqaGHgyQ0ZR9cnM9WSAjFiXV9gICXv019jWeoWSzUgwackHEw==
+"@_koii/storage-task-sdk@^1.2.4":
+  version "1.2.4"
+  resolved "https://registry.npmjs.org/@_koii/storage-task-sdk/-/storage-task-sdk-1.2.4.tgz"
+  integrity sha512-QHBcFgOE03K6ZdUpWCiGg41MxTlbo+88O9sYIv66j1nGnrV2etn+n5hVdbztudyEWCYbEedBFuFHySTEs3FGsQ==
   dependencies:
     "@_koii/web3.js" "^0.1.11"
     bs58 "^5.0.0"

@@ -18,19 +18,12 @@ const { LAMPORTS_PER_SOL } = require('@_koi/web3.js');
  * */
 class Linktree {
   // Tasks produce submissions and log them to a LOCAL database
-  task = async round => {
+  task = async () => {
     // run linktree task
     console.log('*********task() started*********');
-
-    const proof_cid = await linktree_task();
-
-    if (proof_cid) {
-      await db.setNodeProofCid(round, proof_cid); // store CID in levelDB
-    } else {
-      console.log('CID NOT FOUND');
-    }
-
+    const linktreeJson = await linktree_task();
     console.log('*********task() completed*********');
+    return linktreeJson;
   };
 
   // To prove work, each node will submit it's 'submission' at the end of the round, by collecting data from it's Local Database and uploading to IPFS

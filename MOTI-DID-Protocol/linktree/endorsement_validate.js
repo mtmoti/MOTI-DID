@@ -35,10 +35,10 @@ const main = async (submission_value, round) => {
       return false;
     }
 
-    console.log('OUTPUT Endorsement', output);
-    console.log('RESPONSE DATA length Endorsement', output.proofs.length);
-    console.log('PUBLIC KEY Endorsement', output.node_publicKey);
-    console.log('SIGNATURE Endorsement', output.node_signature);
+    // console.log('OUTPUT Endorsement', output);
+    // console.log('RESPONSE DATA length Endorsement', output.proofs.length);
+    // console.log('PUBLIC KEY Endorsement', output.node_publicKey);
+    // console.log('SIGNATURE Endorsement', output.node_signature);
 
     // Check that the node who submitted the proofs is a valid staked node
     let isNode = await verifyNode(
@@ -75,7 +75,6 @@ async function verifyEndorsements(proofs_list_object) {
     console.log('******/ verifyEndorsements START /******');
     let allSignaturesValid = true;
     let AuthUserList = await db.getAllAuthListEndorsement();
-    console.log('Authenticated Users List:', AuthUserList);
 
     for (const proofs of proofs_list_object) {
       let recipient = proofs.recipient;
@@ -96,8 +95,6 @@ async function verifyEndorsements(proofs_list_object) {
         nodeUrlList = nodesUrlRes.data.map(e => {
           return e.data.url;
         });
-
-        console.log('nodeUrlList.length :::: ', nodeUrlList.length);
         if (nodeUrlList.length > 3) {
           const shuffledArray = nodeUrlList.sort(() => Math.random() - 0.5);
           nodeUrlList = shuffledArray.slice(0, 3);
@@ -108,11 +105,6 @@ async function verifyEndorsements(proofs_list_object) {
 
       // verify the signature of the endorsement for each nodes
       for (const nodeUrl of nodeUrlList) {
-        console.error(SERVICE_URL, ' = verifyEndorsements = ', nodeUrl);
-        if (nodeUrl === SERVICE_URL) continue;
-
-        console.log('checking endorsement on ', nodeUrl);
-
         let res;
         // get all endorsement in this node
         if (taskNodeAdministered) {
@@ -137,8 +129,6 @@ async function verifyEndorsements(proofs_list_object) {
         if (endorsement.length > 0) {
           endorsement.forEach(async endorsementObj => {
             if (endorsementObj.endorsementId) {
-              console.log(endorsementObj.endorsementId);
-
               let AuthUserListFound =
                 AuthUserList &&
                 AuthUserList.includes(endorsementObj.endorsementId);
@@ -157,7 +147,7 @@ async function verifyEndorsements(proofs_list_object) {
                 );
 
                 if (getDecodeSignature.recipient === endorsementObj.recipient) {
-                  console.log(`hash SIGNATURE endorsementId`, true);
+                  console.log(`hash SIGNATURE endorsementId true`);
                   await db.setAuthListEndorsement(endorsementObj.endorsementId);
                 } else {
                   console.log(`allSignaturesValid = false;`);

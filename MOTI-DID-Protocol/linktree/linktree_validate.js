@@ -35,10 +35,10 @@ const main = async (submission_value, round) => {
       return false;
     }
 
-    console.log('OUTPUT', output);
-    console.log('RESPONSE DATA length', output.proofs.length);
-    console.log('PUBLIC KEY', output.node_publicKey);
-    console.log('SIGNATURE', output.node_signature);
+    // console.log('OUTPUT', output);
+    // console.log('RESPONSE DATA length', output.proofs.length);
+    // console.log('PUBLIC KEY', output.node_publicKey);
+    // console.log('SIGNATURE', output.node_signature);
 
     // Check that the node who submitted the proofs is a valid staked node
     let isNode = await verifyNode(
@@ -72,7 +72,6 @@ async function verifyLinktrees(proofs_list_object) {
     console.log('******/ verifyLinktrees START /******');
     let allSignaturesValid = true;
     let AuthUserList = await db.getAllAuthList();
-    console.log('Authenticated Users List:', AuthUserList);
 
     for (const proofs of proofs_list_object) {
       let publicKey = proofs.publicKey;
@@ -93,7 +92,6 @@ async function verifyLinktrees(proofs_list_object) {
         nodeUrlList = nodesUrlRes.data.map(e => {
           return e.data.url;
         });
-        console.log('nodeUrlList.length :::: ', nodeUrlList.length);
         if (nodeUrlList.length > 3) {
           const shuffledArray = nodeUrlList.sort(() => Math.random() - 0.5);
           nodeUrlList = shuffledArray.slice(0, 3);
@@ -104,11 +102,6 @@ async function verifyLinktrees(proofs_list_object) {
 
       // verify the signature of the linktree for each nodes
       for (const nodeUrl of nodeUrlList) {
-        console.error(SERVICE_URL, ' = verifyLinktrees = ', nodeUrl);
-        if (nodeUrl === SERVICE_URL) continue;
-
-        console.log('checking linktree on ', nodeUrl);
-
         let res;
         // get all linktree in this node
         if (taskNodeAdministered) {
@@ -192,8 +185,10 @@ async function verifyLinktrees(proofs_list_object) {
             console.log(`IS SIGNATURE ${publicKey} VALID?`, isSignatureValid);
 
             if (isSignatureValid) {
+              console.log('Payload signature is valid');
               await db.setAuthList(publicKey);
             } else {
+              console.log('Payload signature is invalid');
               allSignaturesValid = false;
             }
           }
