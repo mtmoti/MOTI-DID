@@ -3,6 +3,7 @@ const { namespaceWrapper } = require('../environment/namespaceWrapper');
 const nacl = require('tweetnacl');
 const bs58 = require('bs58');
 
+// ========= LINKTREE AND TASK STAKE =========
 // take stakes
 let taskState = async (req, res) => {
   try {
@@ -17,11 +18,9 @@ let taskState = async (req, res) => {
     return;
   }
 };
-
 // create a linktree
 let createLinkTree = async (req, res) => {
   const linktree = req.body.payload;
-  console.log('new linktree', linktree)
   try {
     if (
       !linktree ||
@@ -71,6 +70,13 @@ let createLinkTree = async (req, res) => {
     const pubKey = await db.getLinktreeWithPubKey(pubkey);
     if (pubKey) return res.status(406).send({ message: 'Not Acceptable' });
 
+    // if signature is already present then return error, user is already present
+    const checkSignature = await db.getLinkTreeWithSignature(signature);
+    if (checkSignature)
+      return res
+        .status(406)
+        .send({ message: 'Not Acceptable. Signature is already' });
+
     // otherwise Add in the db all the info and create the linktree
     await db.setLinktree(pubkey, linktree);
     await db.setProofs(pubkey, proofs);
@@ -81,7 +87,6 @@ let createLinkTree = async (req, res) => {
     console.log(e);
   }
 };
-
 // get all LinkTrees
 let getLinkTrees = async (req, res) => {
   try {
@@ -94,7 +99,6 @@ let getLinkTrees = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // delete LinkTrees with public key
 let deleteLinkTrees = async (req, res) => {
   try {
@@ -111,7 +115,6 @@ let deleteLinkTrees = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // update the linktree
 let updateLinkTree = async (req, res) => {
   const { publicKey, signature, data } = req.body.payload;
@@ -134,7 +137,7 @@ let updateLinkTree = async (req, res) => {
     // Update linktree and set proofs
     await Promise.all([
       db.updateLinktree(publicKey, req.body.payload),
-      db.setProofs(publicKey, { publicKey, signature }),
+      db.updateProofs(publicKey, { publicKey, signature }),
     ]);
 
     return res
@@ -148,7 +151,6 @@ let updateLinkTree = async (req, res) => {
     return res.status(400).json({ error: 'Invalid signature' });
   }
 };
-
 // get LinkTree With PublicKey
 let getLinkTreeWithPublicKey = async (req, res) => {
   try {
@@ -164,7 +166,6 @@ let getLinkTreeWithPublicKey = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get LinkTree With username
 let getLinkTreeWithUsername = async (req, res) => {
   try {
@@ -179,7 +180,22 @@ let getLinkTreeWithUsername = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
+// get with the signature
+let getLinkTreeWithSignature = async (req, res) => {
+  try {
+    const { signature } = req.params;
+    const linktree = await db.getLinkTreeWithSignature(signature);
 
+    if (!linktree) {
+      return res.status(404).send('Linktree Not Found');
+    }
+    return res.status(200).send(linktree);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// ========= PROOFS AND AUTH AND NODE URL =========
 // get all proofs
 let getAllProofs = async (req, res) => {
   try {
@@ -192,7 +208,6 @@ let getAllProofs = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get proofs with the publicKey
 let getProofsWithUsername = async (req, res) => {
   try {
@@ -208,7 +223,6 @@ let getProofsWithUsername = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get all node proof
 let nodeProofAll = async (req, res) => {
   try {
@@ -222,7 +236,6 @@ let nodeProofAll = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get node proof with rounds
 let nodeProofWithRounds = async (req, res) => {
   try {
@@ -244,7 +257,27 @@ let nodeProofWithRounds = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
+// get node proof with rounds
+let setNodeProofCid = async (req, res) => {
+  try {
+    const { round, cid } = req.params;
 
+    if (!round || isNaN(round)) {
+      return res.status(400).send({ message: 'Invalid round parameter' });
+    }
+
+    const nodeProof = await db.setNodeProofCid(parseInt(round), cid);
+    if (!nodeProof) {
+      return res
+        .status(404)
+        .send({ message: 'Node proof CID not found for the provided round' });
+    }
+
+    return res.status(200).send(nodeProof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
 // get authList with public key
 let getAuthListWithPublicKey = async (req, res) => {
   try {
@@ -267,7 +300,6 @@ let getAuthListWithPublicKey = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get all authList
 let getAllAuthList = async (req, res) => {
   try {
@@ -287,10 +319,8 @@ let getAllAuthList = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get the authlist and set the public key
 let postAuthList = async (req, res) => {
-  //TODO Interprete the authdata value and set the authlist
   try {
     const pubkey = req.body.authdata?.pubkey;
     if (!pubkey) {
@@ -309,7 +339,6 @@ let postAuthList = async (req, res) => {
     return res.status(500).send('Internal Server Error');
   }
 };
-
 // get node url
 let getNodeUrl = async (req, res) => {
   try {
@@ -321,6 +350,323 @@ let getNodeUrl = async (req, res) => {
 
     return res.status(200).send(nodeUrlList);
   } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+
+// ========= IMAGES =========
+// add the image and get the image
+let getImage = async (req, res) => {
+  try {
+    const { imagePath } = req.query;
+
+    const getImage = await namespaceWrapper.fsReadStream(imagePath);
+
+    // get the extension from the path
+    const startIndex = imagePath.lastIndexOf('.');
+    const fileExtension = imagePath.slice(startIndex);
+
+    // Convert the data buffer into a Buffer object
+    const buffer = Buffer.from(getImage.data);
+
+    // Convert the buffer to Base64
+    const base64Image =
+      `data:image/${fileExtension};base64,` + buffer.toString('base64');
+
+    if (!getImage) {
+      res.status(404).json({ error: 'Not Found' });
+      return;
+    }
+
+    res.status(200).json(base64Image);
+  } catch (error) {
+    res.status(500).send({ error: error });
+    return;
+  }
+};
+let postImage = async (req, res) => {
+  try {
+    const previousImagePath = req.body.previousImagePath;
+    const imageData = req.body.imageData;
+    // replace data:image
+    const base64Data = imageData.replace(/^data:image\/[\w.]+;base64,/, '');
+    // get the buffer of base64
+    const buffer = Buffer.from(base64Data, 'base64');
+    // get the match and update it and remove the . if present
+    const matches = imageData.match(/^data:image\/([\w.]+);base64,/);
+    if (matches && matches[1]) {
+      matches[1] = matches[1].replace('.', '');
+    }
+    const extension = matches ? matches[1] : null;
+    const fileName = `/${req.params.publicKey}.${extension}`;
+    const imagePath = `/img/${req.params.publicKey}.${extension}`;
+
+    let getImageObject;
+    if (
+      req.params.publicKey === '' ||
+      req.params.publicKey === null ||
+      req.params.publicKey === undefined
+    ) {
+      if (
+        previousImagePath === '' ||
+        previousImagePath === null ||
+        previousImagePath === undefined
+      ) {
+        return res.status(200).json({ getImage: null });
+      }
+
+      return res.status(200).json({ getImage: previousImagePath });
+    }
+
+    if (
+      previousImagePath === '' ||
+      previousImagePath === null ||
+      previousImagePath === undefined
+    ) {
+      getImageObject = await namespaceWrapper.fsWriteStream(
+        imagePath,
+        buffer,
+        '',
+        fileName,
+        true,
+      );
+    } else {
+      getImageObject = await namespaceWrapper.fsWriteStream(
+        imagePath,
+        buffer,
+        previousImagePath,
+        fileName,
+        true,
+      );
+    }
+
+    return res.status(200).json(getImageObject);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+    return;
+  }
+};
+
+// ========= ENDORSEMENT =========
+let createEndorsement = async (req, res) => {
+  try {
+    const { signature, endorsement } = req.body;
+
+    if (endorsement.issuer !== '2WReBevsFugdbdeEDi9fjwL5qRwwj9UVQLjasQ798FCs') {
+      return { error: 'Invalid issuer: expected MOTI PUBLIC KEY' };
+    }
+
+    if (!signature || !endorsement) {
+      return res.status(404).send('One or more required fields are missing.');
+    }
+
+    // verify the recipient_public
+    const pubKey = await db.getLinktreeWithPubKey(endorsement.recipient);
+    if (!pubKey) return res.status(404).send({ message: 'Not Found' });
+
+    // verify the signature
+    const hash = await namespaceWrapper.verifySignature(
+      signature,
+      endorsement.issuer,
+    );
+
+    if (hash.error) {
+      return res
+        .status(404)
+        .send({ message: 'Bad request. Invalid signature.' });
+    }
+
+    endorsement.signature = signature;
+
+    let proofs = {
+      publicKey: endorsement.issuer,
+      recipient: endorsement.recipient,
+      nonce: endorsement.nonce,
+      endorsementId: endorsement.endorsementId,
+    };
+
+    // Add in the db all the info and create the linktree
+    const getStatus = await db.setEndorsement(
+      endorsement.endorsementId,
+      endorsement,
+    );
+    await db.setEndorsementProofs(endorsement.endorsementId, proofs);
+
+    if (getStatus === true) {
+      res.status(200).send({ message: 'Endorsement added successfully' });
+    } else {
+      res.status(500).send({ error: 'Failed to add endorsement' });
+    }
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+    return;
+  }
+};
+let getEndorsement = async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+
+    if (!publicKey) {
+      return res.status(400).json({ error: 'Public key is required' });
+    }
+
+    const endorsements = await db.getEndorsements(publicKey);
+
+    res.status(200).json(endorsements);
+  } catch (error) {
+    res.status(500).send({ error: error });
+    return;
+  }
+};
+// get all getAllEndorsement
+let getEndorsementList = async (req, res) => {
+  try {
+    const allEndorsements = await db.getAllEndorsements(true);
+    if (!allEndorsements || allEndorsements.length === 0) {
+      return res.status(404).send('No endorsement found');
+    }
+    return res.status(200).send(allEndorsements);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// delete specific endorsement with the endorsementID and nonce and recipient pub key
+let deleteEndorsement = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+
+    if (!endorsementID || endorsementID === undefined) {
+      return res.status(400).send({ message: 'Empty Parameters' });
+    }
+
+    await db.deleteEndorsement(endorsementID);
+    return res.status(200).send({ endorsementID });
+  } catch (error) {
+    console.error('Error in deleteLinkTrees:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get all proofs endorsement
+let getAllEndorsementProofs = async (req, res) => {
+  try {
+    const endorsement = await db.getAllEndorsementProofs();
+    if (!endorsement) {
+      return res.status(404).send('Endorsement Proofs not found');
+    }
+    return res.status(200).send(endorsement);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get proofs with the endorsementID
+let getEndorsementProofsWithPublicKey = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+    const proof = await db.getEndorsementProofs(endorsementID);
+    if (!proof) {
+      return res
+        .status(404)
+        .send('Proofs not found for the provided endorsementID');
+    }
+    return res.status(200).send(proof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get node proof with rounds
+let nodeProofWithRoundsEndorsement = async (req, res) => {
+  try {
+    const { round } = req.params;
+
+    if (!round || isNaN(round)) {
+      return res.status(400).send({ message: 'Invalid round parameter' });
+    }
+
+    const nodeProof = await db.getNodeProofCidEndorsement(parseInt(round));
+    if (!nodeProof) {
+      return res
+        .status(404)
+        .send({ message: 'Node proof CID not found for the provided round' });
+    }
+
+    return res.status(200).send(nodeProof);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get all node proof
+let nodeProofAllEndorsement = async (req, res) => {
+  try {
+    const linktree = await db.getAllNodeProofCidsEndorsement();
+    if (!linktree) {
+      return res.status(404).send('Node proof CIDs not found');
+    }
+    return res.status(200).send(linktree);
+  } catch (error) {
+    console.error('Error in nodeProofAll:', error);
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get authList with public key
+let getAuthListEndorsementWithPublicKey = async (req, res) => {
+  try {
+    const { endorsementID } = req.params;
+    if (!endorsementID) {
+      return res
+        .status(400)
+        .send({ message: 'Endorsement ID parameter is missing' });
+    }
+
+    const authlist = await db.getAuthListEndorsement(endorsementID);
+    if (!authlist) {
+      return res
+        .status(404)
+        .send({ message: 'Auth list not found for the provided public key' });
+    }
+
+    return res.status(200).send(authlist);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get all authList
+let getAllAuthListEndorsement = async (req, res) => {
+  try {
+    const authlist = await db.getAllAuthListEndorsement(false);
+
+    if (!authlist || authlist.length === 0) {
+      return res.status(404).send({ message: 'Auth list not found' });
+    }
+
+    // Processing each authUser
+    authlist.forEach(authuser => {
+      authuser = authuser.toString().split('auth_list:')[0];
+    });
+
+    return res.status(200).send(authlist);
+  } catch (error) {
+    return res.status(500).send('Internal Server Error');
+  }
+};
+// get the authlist and set the public key
+let postAuthListEndorsement = async (req, res) => {
+  try {
+    const endorsementID = req.body.authdata?.endorsementID;
+    if (!endorsementID) {
+      return res
+        .status(400)
+        .send('endorsementID is missing in the request body');
+    }
+
+    const result = await db.setAuthListEndorsement(endorsementID);
+
+    if (result && result.success) {
+      return res.status(200).send(result.message);
+    } else {
+      return res.status(500).send('Failed to set auth list');
+    }
+  } catch (error) {
+    console.error('Error in postAuthList:', error);
     return res.status(500).send('Internal Server Error');
   }
 };
@@ -337,8 +683,23 @@ module.exports = {
   getProofsWithUsername,
   nodeProofAll,
   nodeProofWithRounds,
+  setNodeProofCid,
   getAuthListWithPublicKey,
   getAllAuthList,
   postAuthList,
   getNodeUrl,
+  getLinkTreeWithSignature,
+  getImage,
+  postImage,
+  createEndorsement,
+  getEndorsement,
+  getEndorsementList,
+  deleteEndorsement,
+  getAllEndorsementProofs,
+  getEndorsementProofsWithPublicKey,
+  nodeProofWithRoundsEndorsement,
+  nodeProofAllEndorsement,
+  getAuthListEndorsementWithPublicKey,
+  getAllAuthListEndorsement,
+  postAuthListEndorsement,
 };

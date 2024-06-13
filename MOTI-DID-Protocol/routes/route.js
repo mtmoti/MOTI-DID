@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const controllers = require('../controllers/controller');
@@ -14,9 +13,15 @@ router.use((req, res, next) => {
   next();
 });
 
+// for the caching
+router.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=30, must-revalidate');
+  next();
+});
+
 router.get('/taskState', controllers.taskState);
 
-// API to register the linktree
+// create linktree
 router.post('/linktree', controllers.createLinkTree);
 
 // get all linktree
@@ -35,6 +40,12 @@ router.get('/linktree/get/:publicKey', controllers.getLinkTreeWithPublicKey);
 router.get(
   '/linktree/get/username/:username',
   controllers.getLinkTreeWithUsername,
+);
+
+// get LinkTree With signature
+router.get(
+  '/linktree/get/signature/:signature',
+  controllers.getLinkTreeWithSignature,
 );
 
 // get all proofs
@@ -61,12 +72,49 @@ router.post('/authlist', controllers.postAuthList);
 // get the node url
 router.get('/nodeurl', controllers.getNodeUrl);
 
-// get logs.txt
-router.get('/logs', async (req, res) => {
-  const logs = fs.readFileSync('./namespace/logs.txt', 'utf8');
-  res.status(200).send(logs);
-});
+// get the image
+router.get('/img/:publicKey', controllers.getImage);
+router.post('/img/:publicKey', controllers.postImage);
 
+// =============================== ENDORSEMENT  ===============================
+// post to the endorsement
+router.post('/endorsement/create', controllers.createEndorsement);
+// get from the receipt public key for the endorsement
+router.get('/endorsement/:publicKey', controllers.getEndorsement);
+// get all endorsement
+router.get('/endorsement/list/all', controllers.getEndorsementList);
+// delete specific endorsement
+router.delete(
+  '/deleteEndorsement/:endorsementID',
+  controllers.deleteEndorsement,
+);
+// get all endorsement proofs
+router.get('/endorsement/proofs/all', controllers.getAllEndorsementProofs);
+// get proofs with the publicKey
+router.get(
+  '/endorsement/proofs/get/:endorsementID',
+  controllers.getEndorsementProofsWithPublicKey,
+);
+// get all node proof
+router.get('/endorsement/node-proof/all', controllers.nodeProofAllEndorsement);
+// get node proof with rounds
+router.get(
+  '/endorsement/node-proof/:round',
+  controllers.nodeProofWithRoundsEndorsement,
+);
+// get authList with public key
+router.get(
+  '/endorsement/authlist/get/:endorsementID',
+  controllers.getAuthListEndorsementWithPublicKey,
+);
+// get all authList
+router.get('/endorsement/authlist/list', controllers.getAllAuthListEndorsement);
+// get the authlist and set the public key
+router.post('/endorsement/authlist', controllers.postAuthListEndorsement);
+
+module.exports = router;
+
+// -----------------------------------------------------------
 // router.post('/register-authlist', async (req, res) => {
 //   const pubkey = req.body.pubkey;
 //   await db.setAuthList(pubkey);
@@ -79,5 +127,3 @@ router.get('/logs', async (req, res) => {
 //   const log = 'Nothing to see here, check /:publicKey to get the linktree';
 //   return res.status(200).send(log);
 // });
-
-module.exports = router;

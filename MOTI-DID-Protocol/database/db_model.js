@@ -13,7 +13,8 @@ ensureIndex();
  * The node proofs CID is stored using the round number as the key.
  */
 
-// Get a linktree from the database using the public key
+// =========================== LINKTREE =============================================
+// get with publicKey
 const getLinktree = async publicKey => {
   try {
     const db = await namespaceWrapper.getDb();
@@ -24,7 +25,15 @@ const getLinktree = async publicKey => {
     return e;
   }
 };
+const getLinktreeWithPubKey = async pubkey => {
+  const db = await namespaceWrapper.getDb();
+  const NodeproofsListRaw = await db.findOne({
+    'linktree.publicKey': pubkey,
+  });
 
+  return NodeproofsListRaw;
+};
+// get with username
 const getLinkTreeWithUsername = async username => {
   console.log({ username });
   const db = await namespaceWrapper.getDb();
@@ -41,7 +50,34 @@ const getLinkTreeWithUsername = async username => {
     return null;
   }
 };
-
+// get with signature
+const getLinkTreeWithSignature = async signature => {
+  const db = await namespaceWrapper.getDb();
+  try {
+    const resp = await db.find({
+      'linktree.signature': signature,
+    });
+    if (resp[0] != null && resp[0] !== undefined && resp[0] !== '') {
+      return resp[0];
+    } else {
+      return null;
+    }
+  } catch (e) {
+    return null;
+  }
+};
+// Get all linktrees from the database
+const getAllLinktrees = async () => {
+  const db = await namespaceWrapper.getDb();
+  const linktreeListRaw = await db.find({
+    linktree: { $exists: true },
+  });
+  console.log('list', linktreeListRaw.length);
+  let linktreeList = linktreeListRaw.map(linktreeList => linktreeList.linktree);
+  console.log('list', linktreeList.length);
+  return linktreeList;
+};
+// delete linktree
 const deleteLinktree = async publicKey => {
   const db = await namespaceWrapper.getDb();
   const linktreeId = getLinktreeId(publicKey);
@@ -57,9 +93,7 @@ const deleteLinktree = async publicKey => {
     return null;
   }
 };
-
 // Store a linktree in the database using the public key
-// TODO - Add validation on signatures to ensure false linktree updates are not possible
 const setLinktree = async (publicKey, linktree) => {
   const db = await namespaceWrapper.getDb();
   try {
@@ -71,7 +105,7 @@ const setLinktree = async (publicKey, linktree) => {
     return undefined;
   }
 };
-
+// update linktree
 const updateLinktree = async (publicKey, linktree) => {
   const db = await namespaceWrapper.getDb();
   try {
@@ -83,13 +117,24 @@ const updateLinktree = async (publicKey, linktree) => {
       throw new Error('Linktree not found for the given publicKey');
     }
 
-    const username = resp.username;
-
-    // Use db.updateOne instead of db.update for clarity
-    await db.updateOne(
-      { _id: resp._id, linktreeId },
-      { $set: { linktreeId, linktree, username } },
+    const updateLinktree = await db.update(
+      { _id: resp._id, linktreeId: linktreeId },
+      {
+        $set: {
+          _id: resp._id,
+          linktreeId: linktreeId,
+          linktree: linktree,
+          username: resp.username,
+        },
+      },
+      {},
+      function (err, numReplaced) {
+        console.log('replaced---->' + numReplaced);
+        db.loadDatabase();
+      },
     );
+
+    console.log('updateLinktree:   ', updateLinktree);
 
     return 'Linktree updated';
   } catch (err) {
@@ -97,23 +142,8 @@ const updateLinktree = async (publicKey, linktree) => {
   }
 };
 
-// Get all linktrees from the database
-
-const getAllLinktrees = async () => {
-  const db = await namespaceWrapper.getDb();
-  const linktreeListRaw = await db.find({
-    linktree: { $exists: true },
-  });      
-  console.log('list', linktreeListRaw.length)
-  let linktreeList = linktreeListRaw.map(linktreeList => linktreeList.linktree);
-  console.log('list', linktreeList.length)
-  // let path =  this.getTaskLevelDBPath();
-  console.log('db path is ')
-  return linktreeList;
-};
-
+// =========================== LINKTREE PROOF =============================================
 // Get proofs submited by a node given that node's public key
-
 const getProofs = async pubkey => {
   const db = await namespaceWrapper.getDb();
   const proofsId = getProofsId(pubkey);
@@ -129,23 +159,7 @@ const getProofs = async pubkey => {
     return null;
   }
 };
-
-// Store the proofs object in the database using the public key
-
-const setProofs = async (pubkey, proofs) => {
-  const db = await namespaceWrapper.getDb();
-  try {
-    const proofsId = getProofsId(pubkey);
-    const result = await db.insert({ proofsId, proofs });
-    // console.log('Proofs set', result);
-    return console.log('Proofs set');
-  } catch (err) {
-    return undefined;
-  }
-};
-
 // Get all proofs from the database
-
 const getAllProofs = async () => {
   const db = await namespaceWrapper.getDb();
   const proofsListRaw = await db.find({
@@ -154,12 +168,41 @@ const getAllProofs = async () => {
   let proofsList = proofsListRaw.map(proofsList => proofsList.proofs);
   return proofsList;
 };
+// Store the proofs object in the database using the public key
+const setProofs = async (pubkey, proofs) => {
+  const db = await namespaceWrapper.getDb();
+  try {
+    const proofsId = getProofsId(pubkey);
+    await db.insert({ proofsId, proofs });
+    return console.log('Proofs set');
+  } catch (err) {
+    return undefined;
+  }
+};
+// update the proof
+const updateProofs = async (pubkey, newProofs) => {
+  const db = await namespaceWrapper.getDb();
+  try {
+    const proofsId = getProofsId(pubkey);
+    const existingProofs = await db.findOne({ proofsId });
 
+    if (!existingProofs) {
+      throw new Error('Linktree not found for the given publicKey');
+    }
+
+    const updatedProofs = { ...existingProofs.proofs, ...newProofs };
+    await db.update({ proofsId }, { $set: { proofs: updatedProofs } });
+    return 'Proofs updated';
+  } catch (err) {
+    return undefined;
+  }
+};
+
+// ================ NODES PROOF (ROUND or CIDs) FOR LINKTREE =======================================
 // Gets the CID associated with a given round of node proofs from the database.
-
 const getNodeProofCid = async round => {
   const db = await namespaceWrapper.getDb();
-  const NodeProofsCidId = getNodeProofCidid(round);
+  const NodeProofsCidId = getNodeProofCidID(round);
   try {
     const resp = await db.findOne({ NodeProofsCidId });
     if (resp) {
@@ -172,22 +215,7 @@ const getNodeProofCid = async round => {
     return null;
   }
 };
-
-// Sets the CID associated with a given round of node proofs in the database.
-
-const setNodeProofCid = async (round, cid) => {
-  const db = await namespaceWrapper.getDb();
-  try {
-    const NodeProofsCidId = getNodeProofCidid(round);
-    await db.insert({ NodeProofsCidId, cid });
-    return console.log('Node CID set');
-  } catch (err) {
-    return undefined;
-  }
-};
-
 // Gets all CIDs associated with node proofs from the database.
-
 const getAllNodeProofCids = async () => {
   const db = await namespaceWrapper.getDb();
   const NodeproofsListRaw = await db.find({
@@ -198,17 +226,20 @@ const getAllNodeProofCids = async () => {
   );
   return NodeproofsList;
 };
-const getLinktreeWithPubKey = async pubkey => {
+// Sets the CID associated with a given round of node proofs in the database.
+const setNodeProofCid = async (round, cid) => {
   const db = await namespaceWrapper.getDb();
-  const NodeproofsListRaw = await db.findOne({
-    'linktree.publicKey': pubkey,
-  });
-
-  return NodeproofsListRaw;
+  try {
+    const NodeProofsCidId = getNodeProofCidID(round);
+    await db.insert({ NodeProofsCidId, cid });
+    return console.log('Node CID set');
+  } catch (err) {
+    return undefined;
+  }
 };
 
+// =========================== AuthList =============================================
 // Get the AuthList from the database using the public key, if not found return null
-
 const getAuthList = async pubkey => {
   const db = await namespaceWrapper.getDb();
   const authListId = getAuthListId(pubkey);
@@ -222,17 +253,14 @@ const getAuthList = async pubkey => {
     return null;
   }
 };
-
-// const setAuthList = async pubkey => {
-//   const db = await namespaceWrapper.getDb();
-//   try {
-//     const authListId = getAuthListId(pubkey);
-//     await db.insert({ authListId, pubkey });
-//     return console.log('auth List pubkey set');
-//   } catch (err) {
-//     return undefined;
-//   }
-// };
+const getAllAuthList = async () => {
+  const db = await namespaceWrapper.getDb();
+  const authListRaw = await db.find({
+    authListId: { $exists: true },
+  });
+  let authList = authListRaw.map(authList => authList.pubkey);
+  return authList;
+};
 const setAuthList = async pubkey => {
   try {
     const db = await namespaceWrapper.getDb();
@@ -246,29 +274,205 @@ const setAuthList = async pubkey => {
   }
 };
 
-const getAllAuthList = async () => {
-  const db = await namespaceWrapper.getDb();
-  const authListRaw = await db.find({
-    authListId: { $exists: true },
-  });
-  let authList = authListRaw.map(authList => authList.pubkey);
-  return authList;
-};
-
-const getNodeProofCidid = round => {
+// =========================== IDS for SPECIFIC FUNCTION =============================================
+const getNodeProofCidID = round => {
   return `node_proofs:${round}`;
 };
-
 const getLinktreeId = publicKey => {
   return `linktree:${publicKey}`;
 };
-
 const getProofsId = pubkey => {
   return `proofs:${pubkey}`;
 };
-
 const getAuthListId = pubkey => {
   return `auth_list:${pubkey}`;
+};
+
+// =========================== ENDORSEMENTS =============================================
+// Get the Endorsement from the database
+const getEndorsements = async publicKey => {
+  try {
+    const db = await namespaceWrapper.getDb2();
+    const endorsementRaw = await db.find({
+      endorsement: { $exists: true },
+      'endorsement.recipient': publicKey,
+    });
+
+    let endorsementList = endorsementRaw.map(
+      endorsementItem => endorsementItem.endorsement,
+    );
+    return endorsementList;
+  } catch (error) {
+    return error;
+  }
+};
+// get all getAllEndorsement
+const getAllEndorsements = async () => {
+  try {
+    const db = await namespaceWrapper.getDb2();
+    const endorsementRaw = await db.find({
+      endorsement: { $exists: true },
+    });
+
+    let endorsementList = endorsementRaw.map(
+      endorsementItem => endorsementItem.endorsement,
+    );
+
+    return endorsementList;
+  } catch (error) {
+    return error;
+  }
+};
+// Store an Endorsement in the database using the endorsementId
+const setEndorsement = async (endorsementId, endorsement) => {
+  try {
+    const db = await namespaceWrapper.getDb2();
+    await db.insert({
+      endorsementId: `endorsementId:${endorsementId}`,
+      endorsement,
+    });
+    console.log('Endorsement added successfully');
+    return true;
+  } catch (err) {
+    console.error('Error adding endorsement:', err);
+    return false;
+  }
+};
+// delete specific endorsement with the endorsementID and nonce and recipient pub key
+const deleteEndorsement = async endorsementID => {
+  const db = await namespaceWrapper.getDb2();
+  try {
+    const resp = await db.deleteOne({
+      endorsementId: `endorsementId:${endorsementID}`,
+    });
+    console.log(resp);
+    if (resp) {
+      return resp.endorsement;
+    } else {
+      return null;
+    }
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+// =========================== ENDORSEMENTS PROOFS =============================================
+// Get all endorsement proofs from the database
+const getAllEndorsementProofs = async () => {
+  const db = await namespaceWrapper.getDb2();
+  const proofsListRaw = await db.find({
+    endorsementsProofsId: { $exists: true },
+  });
+  let proofsList = proofsListRaw.map(proofsList => proofsList.proofs);
+  return proofsList;
+};
+// Get proofs submited by a node given that node's public key and endorsement
+const getEndorsementProofs = async endorsementID => {
+  const db = await namespaceWrapper.getDb2();
+  try {
+    const resp = await db.findOne({
+      endorsementsProofsId: `endorsementId:${endorsementID}`,
+    });
+
+    if (resp) {
+      return resp.proofs;
+    } else {
+      return null;
+    }
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+// Store the proofs object in the database using the endorsementId
+const setEndorsementProofs = async (endorsementId, proofs) => {
+  const db = await namespaceWrapper.getDb2();
+  try {
+    await db.insert({
+      endorsementsProofsId: `endorsementId:${endorsementId}`,
+      proofs,
+    });
+    return console.log('Proofs set');
+  } catch (err) {
+    return undefined;
+  }
+};
+// ================ NODES PROOF (ROUND or CIDs) FOR ENDORSEMENTS =======================================
+// Gets the CID associated with a given round of node proofs from the database.
+const getNodeProofCidEndorsement = async round => {
+  const db = await namespaceWrapper.getDb2();
+  const NodeProofsCidId = `node_proofs:${round}`;
+  try {
+    const resp = await db.findOne({ NodeProofsCidId });
+    if (resp) {
+      return resp.cid;
+    } else {
+      return null;
+    }
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+// Gets all CIDs associated with node proofs from the database.
+const getAllNodeProofCidsEndorsement = async () => {
+  const db = await namespaceWrapper.getDb2();
+  const NodeproofsListRaw = await db.find({
+    cid: { $exists: true },
+  });
+  let NodeproofsList = NodeproofsListRaw.map(
+    NodeproofsList => NodeproofsList.cid,
+  );
+  return NodeproofsList;
+};
+// Sets the CID associated with a given round of node proofs in the database.
+const setNodeProofCidEndorsement = async (round, cid) => {
+  const db = await namespaceWrapper.getDb2();
+  try {
+    const NodeProofsCidId = `node_proofs:${round}`;
+    await db.insert({ NodeProofsCidId, cid });
+    return console.log('Node CID set');
+  } catch (err) {
+    return undefined;
+  }
+};
+// =========================== AuthList FOR ENDORSEMENTS =============================================
+// Get the AuthList from the database using the public key, if not found return null
+const getAuthListEndorsement = async endorsementID => {
+  const db = await namespaceWrapper.getDb2();
+  const authListId = `auth_list:${endorsementID}`;
+  try {
+    const resp = await db.findOne({ authListId });
+    if (resp) {
+      return resp.endorsementID;
+    }
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+const getAllAuthListEndorsement = async () => {
+  const db = await namespaceWrapper.getDb2();
+  const authListRaw = await db.find({
+    authListId: { $exists: true },
+  });
+  let authList = authListRaw.map(authList => authList.endorsementID);
+  return authList;
+};
+const setAuthListEndorsement = async endorsementID => {
+  try {
+    const db = await namespaceWrapper.getDb2();
+    const authListId = `auth_list:${endorsementID}`;
+
+    await db.insert({ authListId, endorsementID });
+
+    return {
+      success: true,
+      message: 'Auth list endorsementID set successfully',
+    };
+  } catch (error) {
+    return { success: false, error: 'Error setting auth list' };
+  }
 };
 
 module.exports = {
@@ -289,4 +493,19 @@ module.exports = {
   getLinkTreeWithUsername,
   updateLinktree,
   getLinktreeWithPubKey,
+  getLinkTreeWithSignature,
+  updateProofs,
+  setEndorsement,
+  getEndorsements,
+  getAllEndorsements,
+  deleteEndorsement,
+  setEndorsementProofs,
+  getAllEndorsementProofs,
+  getEndorsementProofs,
+  getNodeProofCidEndorsement,
+  getAllNodeProofCidsEndorsement,
+  setNodeProofCidEndorsement,
+  getAuthListEndorsement,
+  getAllAuthListEndorsement,
+  setAuthListEndorsement,
 };

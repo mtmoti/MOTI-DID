@@ -1,35 +1,83 @@
+require('dotenv').config();
 const { default: axios } = require('axios');
-const { TASK_ID, SECRET_KEY, TASK_NODE_PORT } = require('./init');
+const { TASK_ID, SECRET_KEY, TASK_NODE_PORT, LogLevel } = require('./init');
+const Datastore = require('nedb-promises');
+const nacl = require('tweetnacl');
+const bs58 = require('bs58');
 const { Connection, PublicKey, Keypair } = require('@_koi/web3.js');
 const taskNodeAdministered = !!TASK_ID;
 const BASE_ROOT_URL = `http://localhost:${TASK_NODE_PORT}/namespace-wrapper`;
-const Datastore = require('nedb-promises');
+const { createHash } = require('crypto');
+const {
+  createWriteStream,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  unlinkSync,
+} = require('fs');
+const { join } = require('path');
+const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
+
+// make an connection
+let connection;
+
+// NamespaceWrapper class
 class NamespaceWrapper {
-  #db;
+  #db; // KOIIDB
+  #db2; // ENDORSEMENT
+  #testingMainSystemAccount;
+  #testingStakingSystemAccount;
+  #testingTaskState;
+  #testingDistributionList;
+
   constructor() {
     if (taskNodeAdministered) {
       this.initializeDB();
     } else {
       this.#db = Datastore.create('./localKOIIDB.db');
+      this.#db2 = Datastore.create('./localENDORSEMENT.db');
+      this.defaultTaskSetup();
     }
   }
 
+  // initialize the database
   async initializeDB() {
-    if (this.#db) return;
+    if (this.#db && this.#db2) return;
     try {
-      const path = await this.getTaskLevelDBPath();
-      console.log('db path is ', path)
-      this.#db = Datastore.create(path);
+      if (taskNodeAdministered) {
+        // KOIIDB
+        const path = await this.getTaskLevelDBPath();
+        this.#db = Datastore.create(path);
+
+        // ENDORSEMENT
+        const path2 = await this.getBasePath();
+        this.#db2 = Datastore.create(`${path2}/ENDORSEMENT`);
+      } else {
+        this.#db = Datastore.create('./localKOIIDB.db');
+        this.#db2 = Datastore.create('./localENDORSEMENT.db');
+      }
     } catch (e) {
       this.#db = Datastore.create(`../namespace/${TASK_ID}/KOIILevelDB.db`);
+      this.#db2 = Datastore.create(
+        `../namespace/${TASK_ID}/ENDORSEMENTLevelDB.db`,
+      );
     }
   }
 
+  // get the KOIIDB
   async getDb() {
     if (this.#db) return this.#db;
     await this.initializeDB();
     return this.#db;
   }
+
+  // get the ENDORSEMENT
+  async getDb2() {
+    if (this.#db2) return this.#db2;
+    await this.initializeDB();
+    return this.#db2;
+  }
+
   /**
    * Namespace wrapper of storeGetAsync
    * @param {string} key // Path to get
@@ -38,8 +86,11 @@ class NamespaceWrapper {
     try {
       await this.initializeDB();
       const resp = await this.#db.findOne({ key: key });
+      const resp2 = await this.#db2.findOne({ key: key });
       if (resp) {
         return resp[key];
+      } else if (resp2) {
+        return resp2[key];
       } else {
         return null;
       }
@@ -48,15 +99,28 @@ class NamespaceWrapper {
       return null;
     }
   }
+
   /**
    * Namespace wrapper over storeSetAsync
    * @param {string} key Path to set
    * @param {*} value Data to set
    */
-  async storeSet(key, value) {
+  async storeSet(key, value, db_number) {
     try {
       await this.initializeDB();
-      await this.#db.insert({ [key]: value, key });
+      if (db_number === 1) {
+        await this.#db.update(
+          { key: key },
+          { [key]: value, key },
+          { upsert: true },
+        );
+      } else if (db_number === 2) {
+        await this.#db2.update(
+          { key: key },
+          { [key]: value, key },
+          { upsert: true },
+        );
+      }
     } catch (e) {
       console.error(e);
       return undefined;
@@ -70,46 +134,151 @@ class NamespaceWrapper {
    * @param  {...any} args Remaining parameters for the FS call
    */
   async fs(method, path, ...args) {
-    return await genericHandler('fs', method, path, ...args);
+    if (taskNodeAdministered) {
+      return await genericHandler('fs', method, path, ...args);
+    } else {
+      return fsPromises[method](`${path}`, ...args);
+    }
   }
   async fsStaking(method, path, ...args) {
-    return await genericHandler('fsStaking', method, path, ...args);
+    if (taskNodeAdministered) {
+      return await genericHandler('fsStaking', method, path, ...args);
+    } else {
+      return fsPromises[method](`${path}`, ...args);
+    }
   }
 
-  async fsWriteStream(imagepath) {
-    return await genericHandler('fsWriteStream', imagepath);
+  // write and read stream for the specific image
+  async fsWriteStream(
+    imagepath,
+    buffer,
+    previousImagePath,
+    fileName,
+    storeInIPFS,
+  ) {
+    try {
+      // if not img folder not exist then create it
+      if (!existsSync(`namespace/${TASK_ID}/img`)) {
+        mkdirSync(`namespace/${TASK_ID}/img`, { recursive: true });
+      }
+
+      // if previousImagePath is not empty
+      if (
+        previousImagePath !== '' &&
+        previousImagePath !== null &&
+        previousImagePath !== undefined
+      ) {
+        // check the previousImagePath if exists then delete it
+        const fullPath = join('namespace', TASK_ID, previousImagePath);
+        if (existsSync(fullPath)) {
+          unlinkSync(fullPath);
+        }
+      }
+
+      // when just write the new image
+      const fullPath = join('namespace', TASK_ID, imagepath);
+      if (existsSync(fullPath)) {
+        return imagepath;
+      }
+
+      // if not exist then create new one
+      const writer = createWriteStream(`namespace/${TASK_ID}` + imagepath);
+      writer.write(buffer);
+      writer.end();
+
+      console.log(
+        'File written successfully: ',
+        imagepath,
+        ': check storeInIPFS: ',
+        storeInIPFS,
+      );
+
+      if (storeInIPFS) {
+        // storing in the koii IPFS
+        const client = new KoiiStorageClient(undefined, undefined, true);
+        const userStaking = await namespaceWrapper.getSubmitterAccount();
+        const fileUploadResponse = await client.uploadFile(
+          `namespace/${TASK_ID}` + imagepath,
+          userStaking,
+        );
+        const fullProtocolLink = `https://ipfs-gateway.koii.live/ipfs/${fileUploadResponse.cid}${fileName}`;
+        return { imagepath: imagepath, protocolLink: fullProtocolLink };
+      }
+
+      return { imagepath, protocolLink: null };
+    } catch (error) {
+      console.error('Error writing file:', error);
+      return { imagepath, protocolLink: null };
+    }
   }
   async fsReadStream(imagepath) {
-    return await genericHandler('fsReadStream', imagepath);
+    if (taskNodeAdministered) {
+      return await genericHandler('fsReadStream', imagepath);
+    } else {
+      const file = readFileSync(imagepath);
+      return file;
+    }
   }
 
   /**
    * Namespace wrapper for getting current slots
    */
   async getSlot() {
-    return await genericHandler('getCurrentSlot');
+    if (taskNodeAdministered) {
+      return await genericHandler('getCurrentSlot');
+    } else {
+      return 100;
+    }
   }
 
+  // signature the payload or message
   async payloadSigning(body) {
-    return await genericHandler('signData', body);
+    if (taskNodeAdministered) {
+      return await genericHandler('signData', body);
+    } else {
+      const msg = new TextEncoder().encode(JSON.stringify(body));
+      const signedMessage = nacl.sign(
+        msg,
+        this.#testingMainSystemAccount.secretKey,
+      );
+      return await this.bs58Encode(signedMessage);
+    }
+  }
+
+  // supported function
+  async bs58Encode(data) {
+    return bs58.encode(
+      Buffer.from(data.buffer, data.byteOffset, data.byteLength),
+    );
+  }
+  async bs58Decode(data) {
+    return new Uint8Array(bs58.decode(data));
+  }
+  decodePayload(payload) {
+    return new TextDecoder().decode(payload);
   }
 
   /**
    * Namespace wrapper of storeGetAsync
    * @param {string} signedMessage r // Path to get
    */
-
   async verifySignature(signedMessage, pubKey) {
-    return await genericHandler('verifySignedData', signedMessage, pubKey);
+    if (taskNodeAdministered) {
+      return await genericHandler('verifySignedData', signedMessage, pubKey);
+    } else {
+      try {
+        const payload = nacl.sign.open(
+          await this.bs58Decode(signedMessage),
+          await this.bs58Decode(pubKey),
+        );
+        if (!payload) return { error: 'Invalid signature' };
+        return { data: this.decodePayload(payload) };
+      } catch (e) {
+        console.error(e);
+        return { error: `Verification failed: ${e}` };
+      }
+    }
   }
-
-  // async submissionOnChain(submitterKeypair, submission) {
-  //   return await genericHandler(
-  //     'submissionOnChain',
-  //     submitterKeypair,
-  //     submission,
-  //   );
-  // }
 
   async stakeOnChain(
     taskStateInfoPublicKey,
@@ -117,15 +286,25 @@ class NamespaceWrapper {
     stakePotAccount,
     stakeAmount,
   ) {
-    return await genericHandler(
-      'stakeOnChain',
-      taskStateInfoPublicKey,
-      stakingAccKeypair,
-      stakePotAccount,
-      stakeAmount,
-    );
+    if (taskNodeAdministered) {
+      return await genericHandler(
+        'stakeOnChain',
+        taskStateInfoPublicKey,
+        stakingAccKeypair,
+        stakePotAccount,
+        stakeAmount,
+      );
+    } else {
+      this.#testingTaskState.stake_list[
+        this.#testingStakingSystemAccount.publicKey.toBase58()
+      ] = stakeAmount;
+    }
   }
   async claimReward(stakePotAccount, beneficiaryAccount, claimerKeypair) {
+    if (!taskNodeAdministered) {
+      console.log('Cannot call sendTransaction in testing mode');
+      return;
+    }
     return await genericHandler(
       'claimReward',
       stakePotAccount,
@@ -134,6 +313,10 @@ class NamespaceWrapper {
     );
   }
   async sendTransaction(serviceNodeAccount, beneficiaryAccount, amount) {
+    if (!taskNodeAdministered) {
+      console.log('Cannot call sendTransaction in testing mode');
+      return;
+    }
     return await genericHandler(
       'sendTransaction',
       serviceNodeAccount,
@@ -143,10 +326,14 @@ class NamespaceWrapper {
   }
 
   async getSubmitterAccount() {
-    const submitterAccountResp = await genericHandler('getSubmitterAccount');
-    return Keypair.fromSecretKey(
-      Uint8Array.from(Object.values(submitterAccountResp._keypair.secretKey)),
-    );
+    if (taskNodeAdministered) {
+      const submitterAccountResp = await genericHandler('getSubmitterAccount');
+      return Keypair.fromSecretKey(
+        Uint8Array.from(Object.values(submitterAccountResp._keypair.secretKey)),
+      );
+    } else {
+      return this.#testingStakingSystemAccount;
+    }
   }
 
   /**
@@ -156,6 +343,10 @@ class NamespaceWrapper {
    * @param {Function} callback // Callback function on traffic receive
    */
   async sendAndConfirmTransactionWrapper(transaction, signers) {
+    if (!taskNodeAdministered) {
+      console.log('Cannot call sendTransaction in testing mode');
+      return;
+    }
     const blockhash = (await connection.getRecentBlockhash('finalized'))
       .blockhash;
     transaction.recentBlockhash = blockhash;
@@ -170,29 +361,88 @@ class NamespaceWrapper {
     );
   }
 
-  // async signArweave(transaction) {
-  //   let tx = await genericHandler('signArweave', transaction.toJSON());
-  //   return arweave.transactions.fromRaw(tx);
-  // }
-  // async signEth(transaction) {
-  //   return await genericHandler('signEth', transaction);
-  // }
-  async getTaskState() {
-    const response = await genericHandler('getTaskState');
-    if (response.error) {
-      return null;
+  async getTaskState(options) {
+    if (taskNodeAdministered) {
+      const response = await genericHandler('getTaskState', options);
+      if (response?.error) {
+        console.log('Error in getting task state', response.error);
+        return null;
+      }
+      return response;
+    } else {
+      return this.#testingTaskState;
     }
-    return response;
+  }
+
+  async logMessage(level, message) {
+    switch (level) {
+      case LogLevel.Log:
+        console.log(message);
+        break;
+      case LogLevel.Warn:
+        console.warn(message);
+        break;
+      case LogLevel.Error:
+        console.error(message);
+        break;
+      default:
+        console.log(
+          `Invalid log level: ${level}. The log levels can be log, warn or error`,
+        );
+        return false;
+    }
+    return true;
+  }
+
+  /**
+   * This logger function is used to log the task erros , warnings and logs on desktop-node
+   * @param {level} enum // Receive method ["Log", "Warn", "Error"]
+   enum LogLevel {
+   Log = 'log',
+   Warn = 'warn',
+   Error = 'error',
+   }
+   * @param {message} string // log, error or warning message
+   * @returns {boolean} // true if the message is logged successfully otherwise false
+   */
+  async logger(level, message) {
+    if (taskNodeAdministered) {
+      return await genericHandler('logger', level, message);
+    } else {
+      return await this.logMessage(level, message);
+    }
   }
 
   async auditSubmission(candidatePubkey, isValid, voterKeypair, round) {
-    return await genericHandler(
-      'auditSubmission',
-      candidatePubkey,
-      isValid,
-      voterKeypair,
-      round,
-    );
+    if (taskNodeAdministered) {
+      return await genericHandler(
+        'auditSubmission',
+        candidatePubkey,
+        isValid,
+        round,
+      );
+    } else {
+      if (
+        this.#testingTaskState.submissions_audit_trigger[round] &&
+        this.#testingTaskState.submissions_audit_trigger[round][candidatePubkey]
+      ) {
+        this.#testingTaskState.submissions_audit_trigger[round][
+          candidatePubkey
+        ].votes.push({
+          is_valid: isValid,
+          voter: voterKeypair.pubKey.toBase58(),
+          slot: 100,
+        });
+      } else {
+        this.#testingTaskState.submissions_audit_trigger[round] = {
+          [candidatePubkey]: {
+            trigger_by: this.#testingStakingSystemAccount.publicKey.toBase58(),
+            slot: 100,
+            votes: [],
+          },
+        };
+      }
+    }
   }
 
   async distributionListAuditSubmission(
@@ -201,92 +451,228 @@ class NamespaceWrapper {
     voterKeypair,
     round,
   ) {
-    return await genericHandler(
-      'distributionListAuditSubmission',
-      candidatePubkey,
-      isValid,
-      round,
-    );
+    if (taskNodeAdministered) {
+      return await genericHandler(
+        'distributionListAuditSubmission',
+        candidatePubkey,
+        isValid,
+        round,
+      );
+    } else {
+      if (
+        this.#testingTaskState.distributions_audit_trigger[round] &&
+        this.#testingTaskState.distributions_audit_trigger[round][
+          candidatePubkey
+        ]
+      ) {
+        this.#testingTaskState.distributions_audit_trigger[round][
+          candidatePubkey
+        ].votes.push({
+          is_valid: isValid,
+          voter: voterKeypair.pubKey.toBase58(),
+          slot: 100,
+        });
+      } else {
+        this.#testingTaskState.distributions_audit_trigger[round] = {
+          [candidatePubkey]: {
+            trigger_by: this.#testingStakingSystemAccount.publicKey.toBase58(),
+            slot: 100,
+            votes: [],
+          },
+        };
+      }
+    }
   }
 
   async getRound() {
-    return await genericHandler('getRound');
+    if (taskNodeAdministered) {
+      return await genericHandler('getRound');
+    } else {
+      return 1;
+    }
   }
 
-  async nodeSelectionDistributionList() {
-    return await genericHandler('nodeSelectionDistributionList');
-  }
-
-  async payoutTrigger() {
-    return await genericHandler('payloadTrigger');
+  async payoutTrigger(round) {
+    if (taskNodeAdministered) {
+      return await genericHandler('payloadTrigger', round);
+    } else {
+      console.log(
+        'Payout Trigger only handles possitive flows (Without audits)',
+      );
+      let round = 1;
+      const submissionValAcc =
+        this.#testingDistributionList[round][
+          this.#testingStakingSystemAccount.toBase58()
+        ].submission_value;
+      this.#testingTaskState.available_balances =
+        this.#testingDistributionList[round][submissionValAcc];
+    }
   }
 
   async uploadDistributionList(distributionList, round) {
-    return await genericHandler(
-      'uploadDistributionList',
-      distributionList,
-      round,
-    );
+    if (taskNodeAdministered) {
+      return await genericHandler(
+        'uploadDistributionList',
+        distributionList,
+        round,
+      );
+    } else {
+      if (!this.#testingDistributionList[round])
+        this.#testingDistributionList[round] = {};
+
+      this.#testingDistributionList[round][
+        this.#testingStakingSystemAccount.publicKey.toBase58()
+      ] = Buffer.from(JSON.stringify(distributionList));
+      return true;
+    }
   }
 
   async distributionListSubmissionOnChain(round) {
-    return await genericHandler('distributionListSubmissionOnChain', round);
-  }
+    if (taskNodeAdministered) {
+      return await genericHandler('distributionListSubmissionOnChain', round);
+    } else {
+      if (!this.#testingTaskState.distribution_rewards_submission[round])
+        this.#testingTaskState.distribution_rewards_submission[round] = {};
 
-  async payloadTrigger() {
-    return await genericHandler('payloadTrigger');
+      this.#testingTaskState.distribution_rewards_submission[round][
+        this.#testingStakingSystemAccount.publicKey.toBase58()
+      ] = {
+        submission_value:
+          this.#testingStakingSystemAccount.publicKey.toBase58(),
+        slot: 200,
+        round: 1,
+      };
+    }
   }
 
   async checkSubmissionAndUpdateRound(submissionValue = 'default', round) {
-    return await genericHandler(
-      'checkSubmissionAndUpdateRound',
-      submissionValue,
-      round,
-    );
+    if (taskNodeAdministered) {
+      return await genericHandler(
+        'checkSubmissionAndUpdateRound',
+        submissionValue,
+        round,
+      );
+    } else {
+      if (!this.#testingTaskState.submissions[round])
+        this.#testingTaskState.submissions[round] = {};
+      this.#testingTaskState.submissions[round][
+        this.#testingStakingSystemAccount.publicKey.toBase58()
+      ] = {
+        submission_value: submissionValue,
+        slot: 100,
+        round: 1,
+      };
+    }
   }
+
   async getProgramAccounts() {
-    return await genericHandler('getProgramAccounts');
+    if (taskNodeAdministered) {
+      return await genericHandler('getProgramAccounts');
+    } else {
+      console.log('Cannot call getProgramAccounts in testing mode');
+    }
   }
+
   async defaultTaskSetup() {
-    return await genericHandler('defaultTaskSetup');
+    if (taskNodeAdministered) {
+      return await genericHandler('defaultTaskSetup');
+    } else {
+      if (this.#testingTaskState) return;
+      this.#testingMainSystemAccount = new Keypair();
+      this.#testingStakingSystemAccount = new Keypair();
+      this.#testingDistributionList = {};
+      this.#testingTaskState = {
+        task_name: 'DummyTestState',
+        task_description: 'Dummy Task state for testing flow',
+        submissions: {},
+        submissions_audit_trigger: {},
+        total_bounty_amount: 10000000000,
+        bounty_amount_per_round: 1000000000,
+        total_stake_amount: 50000000000,
+        minimum_stake_amount: 5000000000,
+        available_balances: {},
+        stake_list: {},
+        round_time: 600,
+        starting_slot: 0,
+        audit_window: 200,
+        submission_window: 200,
+        distribution_rewards_submission: {},
+        distributions_audit_trigger: {},
+      };
+    }
   }
+
   async getRpcUrl() {
-    return await genericHandler('getRpcUrl');
+    if (taskNodeAdministered) {
+      return await genericHandler('getRpcUrl');
+    } else {
+      console.log('Cannot call getNodes in testing mode');
+    }
   }
   async getNodes(url) {
-    return await genericHandler('getNodes', url);
-  }
-
-  // Wrapper for selection of node to prepare a distribution list
-
-  async nodeSelectionDistributionList(round) {
-    return await genericHandler('nodeSelectionDistributionList', round);
+    if (taskNodeAdministered) {
+      return await genericHandler('getNodes', url);
+    } else {
+      console.log('Cannot call getNodes in testing mode');
+    }
   }
 
   async getDistributionList(publicKey, round) {
-    const response = await genericHandler(
-      'getDistributionList',
-      publicKey,
-      round,
-    );
-    if (response.error) {
-      return null;
+    if (taskNodeAdministered) {
+      const response = await genericHandler(
+        'getDistributionList',
+        publicKey,
+        round,
+      );
+      if (response.error) {
+        return null;
+      }
+      return response;
+    } else {
+      const submissionValAcc =
+        this.#testingTaskState.distribution_rewards_submission[round][
+          this.#testingStakingSystemAccount.publicKey.toBase58()
+        ].submission_value;
+      return this.#testingDistributionList[round][submissionValAcc];
     }
-    return response;
+  }
+
+  async getTaskSubmissionInfo(round, forcefetch = false) {
+    if (taskNodeAdministered) {
+      const taskSubmissionInfo = await genericHandler(
+        'getTaskSubmissionInfo',
+        round,
+        forcefetch,
+      );
+      if (!taskSubmissionInfo || taskSubmissionInfo.error) {
+        return null;
+      }
+      return taskSubmissionInfo;
+    } else {
+      return this.#testingTaskState.submissions[round];
+    }
   }
 
   async validateAndVoteOnNodes(validate, round) {
     console.log('******/  IN VOTING /******');
-    const taskAccountDataJSON = await this.getTaskState();
 
-    // console.log(
-    //   'Fetching the submissions of N - 1 round',
-    //   taskAccountDataJSON.submissions[round],
-    // );
+    let taskAccountDataJSON = null;
+    try {
+      taskAccountDataJSON = await this.getTaskSubmissionInfo(round);
+    } catch (error) {
+      console.error('Error in getting submissions for the round', error);
+    }
+    if (taskAccountDataJSON == null) {
+      console.log('No submissions found for the round', round);
+      return;
+    }
     const submissions = taskAccountDataJSON.submissions[round];
+
+    console.log(`Fetching the submissions of round ${round}`, submissions);
+
     if (submissions == null) {
-      console.log('No submisssions found in N-1 round');
-      return 'No submisssions found in N-1 round';
+      console.log(`No submisssions found in round ${round}`);
+      return `No submisssions found in round ${round}`;
     } else {
       const keys = Object.keys(submissions);
       const values = Object.values(submissions);
@@ -308,7 +694,7 @@ class NamespaceWrapper {
             //   values[i].submission_value,
             // );
             isValid = await validate(values[i].submission_value, round);
-            // console.log(`Voting ${isValid} to ${candidatePublicKey}`);
+            console.log(`Voting ${isValid} to ${candidatePublicKey}`);
 
             if (isValid) {
               // check for the submissions_audit_trigger , if it exists then vote true on that otherwise do nothing
@@ -330,7 +716,7 @@ class NamespaceWrapper {
                   submitterAccountKeyPair,
                   round,
                 );
-                // console.log('RESPONSE FROM AUDIT FUNCTION', response);
+                console.log('RESPONSE FROM AUDIT FUNCTION', response);
               }
             } else if (isValid == false) {
               // Call auditSubmission function and isValid is passed as false
@@ -341,7 +727,7 @@ class NamespaceWrapper {
                 submitterAccountKeyPair,
                 round,
               );
-              // console.log('RESPONSE FROM AUDIT FUNCTION', response);
+              console.log('RESPONSE FROM AUDIT FUNCTION', response);
             }
           } catch (err) {
             console.log('ERROR IN ELSE CONDITION', err);
@@ -351,19 +737,60 @@ class NamespaceWrapper {
     }
   }
 
-  async validateAndVoteOnDistributionList(validateDistribution, round) {
+  async getTaskDistributionInfo(round) {
+    if (taskNodeAdministered) {
+      const taskDistributionInfo = await genericHandler(
+        'getTaskDistributionInfo',
+        round,
+      );
+      if (!taskDistributionInfo || taskDistributionInfo.error) {
+        return null;
+      }
+      return taskDistributionInfo;
+    } else {
+      return this.#testingTaskState.distribution_rewards_submission[round];
+    }
+  }
+
+  async validateAndVoteOnDistributionList(
+    validateDistribution,
+    round,
+    isPreviousRoundFailed = false,
+  ) {
     // await this.checkVoteStatus();
     console.log('******/  IN VOTING OF DISTRIBUTION LIST /******');
-    const taskAccountDataJSON = await this.getTaskState();
-    // console.log(
-    //   'Fetching the Distribution submissions of N - 2 round',
-    //   taskAccountDataJSON.distribution_rewards_submission[round],
-    // );
+
+    let tasknodeVersionSatisfied = false;
+    const taskNodeVersion = await this.getTaskNodeVersion();
+    if (semver.gte(taskNodeVersion, '1.11.19')) {
+      tasknodeVersionSatisfied = true;
+    }
+
+    let taskAccountDataJSON = null;
+    try {
+      taskAccountDataJSON = await this.getTaskDistributionInfo(round);
+    } catch (error) {
+      console.error('Error in getting distributions for the round', error);
+    }
+    if (taskAccountDataJSON == null) {
+      console.log('No distribution submissions found for the round', round);
+      return;
+    }
+
     const submissions =
-      taskAccountDataJSON.distribution_rewards_submission[round];
-    if (submissions == null) {
-      console.log('No submisssions found in N-2 round');
-      return 'No submisssions found in N-2 round';
+      taskAccountDataJSON?.distribution_rewards_submission[round];
+
+    console.log(
+      `Fetching the Distribution submissions of round ${round}`,
+      submissions,
+    );
+    if (
+      submissions == null ||
+      submissions == undefined ||
+      submissions.length == 0
+    ) {
+      console.log(`No submisssions found in round ${round}`);
+      return `No submisssions found in round ${round}`;
     } else {
       const keys = Object.keys(submissions);
       const values = Object.values(submissions);
@@ -377,76 +804,340 @@ class NamespaceWrapper {
       let isValid;
       const submitterAccountKeyPair = await this.getSubmitterAccount();
       const submitterPubkey = submitterAccountKeyPair.publicKey.toBase58();
-
+      const selectedNode = await this.nodeSelectionDistributionList(
+        round,
+        isPreviousRoundFailed,
+      );
+      console.log('SELECTED NODE FOR AUDIT', selectedNode);
+      if (selectedNode == submitterPubkey) {
+        console.log('YOU CANNOT VOTE ON YOUR OWN DISTRIBUTION SUBMISSIONS');
+        return;
+      }
       for (let i = 0; i < size; i++) {
         let candidatePublicKey = keys[i];
         // console.log('FOR CANDIDATE KEY', candidatePublicKey);
         let candidateKeyPairPublicKey = new PublicKey(keys[i]);
-        if (candidatePublicKey == submitterPubkey) {
-          console.log('YOU CANNOT VOTE ON YOUR OWN DISTRIBUTION SUBMISSIONS');
-        } else {
-          try {
-            // console.log(
-            //   'DISTRIBUTION SUBMISSION VALUE TO CHECK',
-            //   values[i].submission_value,
-            // );
-            isValid = await validateDistribution(
-              values[i].submission_value,
-              round,
-            );
-            // console.log(`Voting ${isValid} to ${candidatePublicKey}`);
+        try {
+          // console.log(
+          //   'DISTRIBUTION SUBMISSION VALUE TO CHECK',
+          //   values[i].submission_value,
+          // );
+          console.log('VOTING ON DISTRIBUTION LIST');
+          isValid = await validateDistribution(
+            values[i].submission_value,
+            round,
+          );
+          // console.log(`Voting ${isValid} to ${candidatePublicKey}`);
 
-            if (isValid) {
-              // check for the submissions_audit_trigger , if it exists then vote true on that otherwise do nothing
-              const distributions_audit_trigger =
-                taskAccountDataJSON.distributions_audit_trigger[round];
-              // console.log(
-              //   'SUBMIT DISTRIBUTION AUDIT TRIGGER',
-              //   distributions_audit_trigger,
-              // );
-              // console.log(
-              //   "CANDIDATE PUBKEY CHECK IN AUDIT TRIGGER",
-              //   distributions_audit_trigger[candidatePublicKey]
-              // );
-              if (
-                distributions_audit_trigger &&
-                distributions_audit_trigger[candidatePublicKey]
-              ) {
-                console.log('VOTING TRUE ON DISTRIBUTION AUDIT');
-                const response = await this.distributionListAuditSubmission(
-                  candidateKeyPairPublicKey,
-                  isValid,
-                  submitterAccountKeyPair,
-                  round,
-                );
-                // console.log(
-                //   'RESPONSE FROM DISTRIBUTION AUDIT FUNCTION',
-                //   response,
-                // );
-              }
-            } else if (isValid == false) {
-              // Call auditSubmission function and isValid is passed as false
-              console.log('RAISING AUDIT / VOTING FALSE ON DISTRIBUTION');
+          if (isValid) {
+            // check for the submissions_audit_trigger , if it exists then vote true on that otherwise do nothing
+            const distributions_audit_trigger =
+              taskAccountDataJSON.distributions_audit_trigger[round];
+            // console.log(
+            //   'SUBMIT DISTRIBUTION AUDIT TRIGGER',
+            //   distributions_audit_trigger,
+            // );
+            // console.log(
+            //   "CANDIDATE PUBKEY CHECK IN AUDIT TRIGGER",
+            //   distributions_audit_trigger[candidatePublicKey]
+            // );
+            if (
+              distributions_audit_trigger &&
+              distributions_audit_trigger[candidatePublicKey]
+            ) {
+              console.log('VOTING TRUE ON DISTRIBUTION AUDIT');
               const response = await this.distributionListAuditSubmission(
                 candidateKeyPairPublicKey,
                 isValid,
                 submitterAccountKeyPair,
                 round,
               );
-              // console.log(
-              //   'RESPONSE FROM DISTRIBUTION AUDIT FUNCTION',
-              //   response,
-              // );
+              console.log(
+                'RESPONSE FROM DISTRIBUTION AUDIT FUNCTION',
+                response,
+              );
             }
-          } catch (err) {
-            console.log('ERROR IN ELSE CONDITION FOR DISTRIBUTION', err);
+          } else if (isValid == false && tasknodeVersionSatisfied) {
+            // Call auditSubmission function and isValid is passed as false
+            console.log('RAISING AUDIT / VOTING FALSE ON DISTRIBUTION');
+            const response = await this.distributionListAuditSubmission(
+              candidateKeyPairPublicKey,
+              isValid,
+              submitterAccountKeyPair,
+              round,
+            );
+            console.log('RESPONSE FROM DISTRIBUTION AUDIT FUNCTION', response);
           }
+        } catch (err) {
+          console.log('ERROR IN ELSE CONDITION FOR DISTRIBUTION', err);
         }
       }
     }
   }
+
   async getTaskLevelDBPath() {
-    return await genericHandler('getTaskLevelDBPath');
+    if (taskNodeAdministered) {
+      return await genericHandler('getTaskLevelDBPath');
+    } else {
+      return './KOIIDB';
+    }
+  }
+
+  async getBasePath() {
+    if (taskNodeAdministered) {
+      const basePath = (await namespaceWrapper.getTaskLevelDBPath()).replace(
+        '/KOIIDB',
+        '',
+      );
+      return basePath;
+    } else {
+      return './';
+    }
+  }
+
+  async getAverageSlotTime() {
+    if (taskNodeAdministered) {
+      try {
+        return await genericHandler('getAverageSlotTime');
+      } catch (error) {
+        console.error('Error getting average slot time', error);
+        return 400;
+      }
+    } else {
+      return 400;
+    }
+  }
+
+  async getTaskNodeVersion() {
+    if (taskNodeAdministered) {
+      try {
+        return await genericHandler('getTaskNodeVersion');
+      } catch (error) {
+        console.error('Error getting task node version', error);
+        return;
+      }
+    } else {
+      return '1.11.19';
+    }
+  }
+
+  async nodeSelectionDistributionList(round, isPreviousFailed) {
+    let taskAccountDataJSON = null;
+    try {
+      taskAccountDataJSON = await this.getTaskSubmissionInfo(round, true);
+    } catch (error) {
+      console.error('Task submission not found', error);
+      return;
+    }
+
+    if (taskAccountDataJSON == null) {
+      console.error('Task state not found');
+      return;
+    }
+    console.log('EXPECTED ROUND', round);
+
+    const submissions = taskAccountDataJSON.submissions[round];
+    if (submissions == null) {
+      console.log('No submisssions found in N-1 round');
+      return 'No submisssions found in N-1 round';
+    } else {
+      // getting last 3 submissions for the rounds
+      let keys;
+      const latestRounds = [round, round - 1, round - 2].filter(r => r >= 0);
+
+      const promises = latestRounds.map(async r => {
+        if (r == round) {
+          return new Set(Object.keys(submissions));
+        } else {
+          let roundSubmissions = null;
+          try {
+            roundSubmissions = await this.getTaskSubmissionInfo(r, true);
+            if (roundSubmissions && roundSubmissions.submissions[r]) {
+              return new Set(Object.keys(roundSubmissions.submissions[r]));
+            }
+          } catch (error) {
+            console.error('Error in getting submissions for the round', error);
+          }
+          return new Set();
+        }
+      });
+      const keySets = await Promise.all(promises);
+
+      // Find the keys present in all the rounds
+      keys =
+        keySets.length > 0
+          ? [...keySets[0]].filter(key => keySets.every(set => set.has(key)))
+          : [];
+      if (keys.length == 0) {
+        console.log('No common keys found in last 3 rounds');
+        keys = Object.keys(submissions);
+      }
+      const values = keys.map(key => submissions[key]);
+      let size = keys.length;
+      console.log('Submissions from N-2  round: ', size);
+
+      // Check the keys i.e if the submitter shall be excluded or not
+
+      try {
+        const distributionData = await this.getTaskDistributionInfo(round);
+        const audit_record = distributionData?.distributions_audit_record;
+        if (audit_record && audit_record[round] == 'PayoutFailed') {
+          console.log('ROUND DATA', audit_record[round]);
+          console.log(
+            'SUBMITTER LIST',
+            distributionData.distribution_rewards_submission[round],
+          );
+          const submitterList =
+            distributionData.distribution_rewards_submission[round];
+          const submitterKeys = Object.keys(submitterList);
+          console.log('SUBMITTER KEYS', submitterKeys);
+          const submitterSize = submitterKeys.length;
+          console.log('SUBMITTER SIZE', submitterSize);
+
+          for (let j = 0; j < submitterSize; j++) {
+            console.log('SUBMITTER KEY CANDIDATE', submitterKeys[j]);
+            const id = keys.indexOf(submitterKeys[j]);
+            console.log('ID', id);
+            if (id != -1) {
+              keys.splice(id, 1);
+              values.splice(id, 1);
+              size--;
+            }
+          }
+
+          console.log('KEYS FOR HASH CALC', keys.length);
+        }
+      } catch (error) {
+        console.log('Error in getting distribution data', error);
+      }
+
+      // calculating the digest
+
+      const ValuesString = JSON.stringify(values);
+
+      const hashDigest = createHash('sha256')
+        .update(ValuesString)
+        .digest('hex');
+
+      // console.log('HASH DIGEST', hashDigest);
+
+      // function to calculate the score
+      const calculateScore = (str = '') => {
+        return str.split('').reduce((acc, val) => {
+          return acc + val.charCodeAt(0);
+        }, 0);
+      };
+
+      // function to compare the ASCII values
+
+      const compareASCII = (str1, str2) => {
+        const firstScore = calculateScore(str1);
+        const secondScore = calculateScore(str2);
+        return Math.abs(firstScore - secondScore);
+      };
+
+      // loop through the keys and select the one with higest score
+
+      const selectedNode = {
+        score: 0,
+        pubkey: '',
+      };
+      let score = 0;
+      if (isPreviousFailed) {
+        let leastScore = -Infinity;
+        let secondLeastScore = -Infinity;
+        for (let i = 0; i < size; i++) {
+          const candidateSubmissionJson = {};
+          candidateSubmissionJson[keys[i]] = values[i];
+          const candidateSubmissionString = JSON.stringify(
+            candidateSubmissionJson,
+          );
+          const candidateSubmissionHash = createHash('sha256')
+            .update(candidateSubmissionString)
+            .digest('hex');
+          const candidateScore = compareASCII(
+            hashDigest,
+            candidateSubmissionHash,
+          );
+          if (candidateScore > leastScore) {
+            secondLeastScore = leastScore;
+            leastScore = candidateScore;
+          } else if (candidateScore > secondLeastScore) {
+            secondLeastScore = candidateScore;
+            selectedNode.score = candidateScore;
+            selectedNode.pubkey = keys[i];
+          }
+        }
+      } else {
+        for (let i = 0; i < size; i++) {
+          const candidateSubmissionJson = {};
+          candidateSubmissionJson[keys[i]] = values[i];
+          const candidateSubmissionString = JSON.stringify(
+            candidateSubmissionJson,
+          );
+          const candidateSubmissionHash = createHash('sha256')
+            .update(candidateSubmissionString)
+            .digest('hex');
+          const candidateScore = compareASCII(
+            hashDigest,
+            candidateSubmissionHash,
+          );
+          // console.log('CANDIDATE SCORE', candidateScore);
+          if (candidateScore > score) {
+            score = candidateScore;
+            selectedNode.score = candidateScore;
+            selectedNode.pubkey = keys[i];
+          }
+        }
+      }
+
+      // console.log('SELECTED NODE OBJECT', selectedNode);
+      return selectedNode.pubkey;
+    }
+  }
+
+  async selectAndGenerateDistributionList(
+    submitDistributionList,
+    round,
+    isPreviousRoundFailed,
+  ) {
+    console.log('SelectAndGenerateDistributionList called');
+    const selectedNode = await this.nodeSelectionDistributionList(
+      round,
+      isPreviousRoundFailed,
+    );
+    console.log('Selected Node', selectedNode);
+    const submitPubKey = await this.getSubmitterAccount();
+    if (
+      selectedNode == undefined ||
+      selectedNode == '' ||
+      submitPubKey == undefined
+    )
+      return;
+    if (selectedNode == submitPubKey?.publicKey.toBase58()) {
+      await submitDistributionList(round);
+      const taskState = await this.getTaskState();
+      if (taskState == null) {
+        console.error('Task state not found');
+        return;
+      }
+      const avgSlotTime = await this.getAverageSlotTime();
+      if (avgSlotTime == null) {
+        console.error('Avg slot time not found');
+        return;
+      }
+      setTimeout(async () => {
+        await this.payoutTrigger(round);
+      }, (taskState.audit_window + taskState.submission_window) * avgSlotTime);
+    }
+  }
+
+  getMainAccountPubkey() {
+    if (taskNodeAdministered) {
+      return MAIN_ACCOUNT_PUBKEY;
+    } else {
+      return this.#testingMainSystemAccount.publicKey.toBase58();
+    }
   }
 }
 
@@ -463,13 +1154,24 @@ async function genericHandler(...args) {
       return null;
     }
   } catch (err) {
-    console.error(`Error in genericHandler: "${args[0]}"`, err.message);
-    console.error(err?.response?.data);
-    return { error: err };
+    const responseData = err?.response?.data?.message;
+    if (
+      (args[0] === 'getTaskSubmissionInfo' ||
+        args[0] === 'getTaskDistributionInfo') &&
+      responseData &&
+      typeof responseData === 'string' &&
+      responseData.includes('Task does not have any')
+    ) {
+      console.log(`Error in genericHandler: "${args[0]}"`, err.message);
+      console.log(err?.response?.data);
+    } else {
+      console.error(`Error in genericHandler: "${args[0]}"`, err.message);
+      console.error(err?.response?.data);
+      return { error: err };
+    }
   }
 }
 
-let connection;
 const namespaceWrapper = new NamespaceWrapper();
 if (taskNodeAdministered) {
   namespaceWrapper.getRpcUrl().then(rpcUrl => {
@@ -477,7 +1179,8 @@ if (taskNodeAdministered) {
     connection = new Connection(rpcUrl, 'confirmed');
   });
 }
+
 module.exports = {
   namespaceWrapper,
-  taskNodeAdministered,
+  taskNodeAdministered, // Boolean flag indicating that the task is being ran in active mode (Task node supervised), or development (testing) mode
 };

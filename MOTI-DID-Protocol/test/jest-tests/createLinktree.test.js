@@ -15,8 +15,7 @@ function createPayload() {
     linktree: {
       name: 'Linktree test',
       description: 'Linktree test description',
-      image:
-        'https://www.koii.network/_next/image?url=%2FKoiiNetwork-logo_128.png&w=48&q=75',
+      image: '/img/cid/jpeg',
       background: '',
       links: [
         {

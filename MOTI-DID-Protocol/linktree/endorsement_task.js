@@ -9,17 +9,9 @@ const nacl = require('tweetnacl');
 const db = require('../database/db_model');
 const { Keypair } = require('@solana/web3.js');
 
-/**
- * @function linktree_task
- * @description
- * This is the main Linktree task function
- * It will call the database to get the linktree list
- * Then it will sign the list with the node's keypair
- * Then it will upload the signed list to IPFS and reture the CID
- */
 const main = async () => {
   try {
-    console.log('******/ IN Linktree Task FUNCTION /******');
+    console.log('******/ IN Endorsement Task FUNCTION /******');
 
     // Load node's keypair from the JSON file
     let keypair;
@@ -30,16 +22,16 @@ const main = async () => {
       keypair = Keypair.generate();
     }
 
-    // Get linktree list fron localdb
-    const proofs_list_object = await db.getAllProofs();
+    // Get Endorsement list fron localdb
+    const proofs_list_object = await db.getAllEndorsementProofs();
 
     // check if it empty return null
     if (Array.isArray(proofs_list_object) && proofs_list_object.length === 0) {
-      console.log('Error submission_value');
+      console.log('Error submission_value Endorsement');
       return {};
     }
 
-    // Use the node's keypair to sign the linktree list
+    // Use the node's keypair to sign the Endorsement list
     const messageUint8Array = new Uint8Array(
       Buffer.from(JSON.stringify(proofs_list_object)),
     );
@@ -54,7 +46,7 @@ const main = async () => {
     };
     return submission_value;
   } catch (error) {
-    console.log('main ::: Error submission_value Linktree', error);
+    console.log('main ::: Error submission_value Endorsement', error);
     return {};
   }
 };
