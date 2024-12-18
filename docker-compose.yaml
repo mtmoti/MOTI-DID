@@ -1,0 +1,23 @@
+version: '3.2'
+services:
+  task_node:
+    image: public.ecr.aws/koii-network/task_node:latest
+    command: yarn initialize-start
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
+    ports:
+      - '30017:30017'
+
+    env_file: .env
+
+    container_name: task_node
+
+    # network_mode: host
+    volumes:
+      - ./id.json:/app/config/id.json
+      - ./data:/app/data
+      - ./namespace:/app/namespace
+      - ./dist:/app/executables
+    networks:
+      - app-network

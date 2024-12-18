@@ -1,103 +1,148 @@
-# moti-bio
+# Link tree task
 
-## Getting started
+Tasks run following a periodic structure of 'rounds':
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+![Screenshot_20230307-091958](https://user-images.githubusercontent.com/66934242/223565192-3ecce9c6-0f9a-4a58-8b02-2db19c61141f.png)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Each round is set by a specific time period, and nodes participate by uploading data to IPFS, posting CIDs to the K2 settlement layer, and sending messages across REST APIs and WebSockets.
 
-## Add your files
+For more information on how the Task Flow works, check out [the runtime environment docs](https://docs.koii.network/microservices-and-tasks/what-are-tasks/gradual-consensus).
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+If this is your first time writing a Koii Task, you might want to use the [task organizer](https://www.figma.com/community/file/1220194939977550205/Task-Outline).
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/koii-network/moti-bio.git
-git branch -M main
-git push -uf origin main
-```
+## Requirements
 
-## Integrate with your tools
+- [Node >=16.0.0](https://nodejs.org)
+- [Docker compose](https://docs.docker.com/compose/install/docker)
 
-- [ ] [Set up project integrations](https://gitlab.com/koii-network/moti-bio/-/settings/integrations)
+## What's in the template?
 
-## Collaborate with your team
+`index.js` is the hub of your app, and ties together the other pieces. This will be the entrypoint when your task runs on Task Nodes
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+`NamespaceWrappers.js` contains the interfaces to make API calls to the core of the task-node. It contains all the necessary functions required to submit and audit the work, as well as the distribution lists
 
-## Test and Deploy
+`coreLogic.js` is where you'll define your task, audit, and distribution logic, and controls the majority of task functionality. You can of course break out separate features into sub-files and import them into the core logic before web-packing.
 
-Use the built-in continuous integration in GitLab.
+## Runtime Options
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+There are two ways to run your task when doing development:
 
----
+1. With Timer ON (see .env-local)- When the timer is ON, IPC calls are made by calculating the average time slots of all the task running your node.
 
-# Editing this README
+2. With Timer OFF - This allows you to do manual calls to K2 and disables the triggers for round managemnt on K2. Transactions are only accepted during the correct period. Guide for manual calls is in index.js
+   Linktree Koii task
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## coreLogic.js
 
-## Suggestions for a good README
+The most important file in any koii task is the coreLogic.js file. It is provided in the task template and is where most of the functionality will be coded.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+In the Linktree task’s coreLogic, the first function is the task(). This function calls the linktree_task function from the linktree_task.js file.
 
-## Name
+## Linktree_task => this function fetches proofs from the local database, creates a submission object for those proofs, and uploads it to IPFS. IPFS gives back a reference CID of the submission, which the function returns.
 
-Choose a self-explaining name for your project.
+The task function gets the CID from the linktree_task and stores it to the levelDB.
 
-## Description
+The fetchSubmission function can be used to get the CID of the submission back.
 
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+The generateDistributionList function generates a distribution list for rewards based on submissions made by the nodes. It takes all the votes that the nodes have made on the submission and if the false votes are higher than the true votes, this function slashes 70% of the stake of the task submitter as a penalty. If the true votes are higher than the submission is valid and it distributes the rewards.
 
-## Badges
+The submitDistributionList function submits the distribution list generated by the "generateDistributionList" function.
 
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+The validateNode function is called when a node is selected to validate the submission value. It calls the linktree_validate function from the linktree_validate file.
 
-## Visuals
+## Linktree_validate.js => this file verifies the validity of a Linktree CID submission.
 
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+The validateDistribution function validates a distribution list submitted by a node for a specific round.
 
-## Installation
+The submitTask function submits the address with a distribution list to K2.
 
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+The auditTask function checks a submission in a specific round and confirms that the task is valid.
 
-## Usage
+The auditDistribution checks the distribution list is valid for a specific round.
 
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## Db_model.js
 
-## Support
+This file contains all the functions required for storing and retrieving data related to the linktree and node proofs used in the Linktree CID Validation task as well as the authorized users list.
 
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+getLinktreeWithPubKey: retrieves the linktree by it’s public key
 
-## Roadmap
+setLinktree: sets the linktree associated with the given public key
 
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+getAllLinktrees: retrieves all link trees stored in the database
 
-## Contributing
+getProofs: retrieves the proofs associated with a given public key
 
-State if you are open to contributions and what your requirements are for accepting them.
+setProofs: sets the proofs associated with a given public key
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+getAllProofs: retrieves all proofs stored in the database
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+getNodeProofCid: retrieves the CID associated with a given round of node proofs
 
-## Authors and acknowledgment
+setNodeProofCid: sets the CID associated with a given round of node proofs
 
-Show your appreciation to those who have contributed to the project.
+getAllNodeProofCids: retrieves all CIDs associated with node proofs stored in the database
 
-## License
+getAuthList: retrieves the list of the authorized users
 
-For open source projects, say how it is licensed.
+setAuthList: sets the authorized list
 
-## Project status
+getAllAuthLists: retrieves all authorized lists stored in the database
 
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## The test folder
+
+This folder contains all the test files for the linktree task.The test folder.
+
+## Router.js
+
+This file contains a set of API endpoints for the linktree.
+
+How to run the task on the task node:
+
+# Testing and Deploying
+
+Before you begin this process, be sure to check your code and write unit tests wherever possible to verify individual core logic functions. `unitTest.js` file helps you to mock task state parameters that are required in core logic function and test it. Testing using the docker container should be mostly used for consensus flows, as it will take longer to rebuild and re-deploy the docker container.
+
+## Build
+
+Before deploying a task, you'll need to build it into a single file executable by running
+`yarn webpack`
+
+## Deploy your bundle
+
+Complete the following to deploy your task on the k2 testnet and test it locally with docker compose.
+
+### To get a web3.storage key
+
+If you have already created an account on [web3.storage](https://web3.storage/docs/#quickstart) you'll just need to enter the API key after the prompts in the deploy process.
+
+### Find or create a k2 wallet key
+
+If you have already generated a Koii wallet on yoru filesystem you can obtain the path to it by running `koii config get` which should return something similar to the following:
+
+![截图 2023-03-07 18-13-17](https://user-images.githubusercontent.com/66934242/223565661-ece1591f-2189-4369-8d2a-53393da15834.png)
+
+The `Keypair Path` will be used to pay gas fees and fund your bounty wallet by inputting it into the task CLI.
+
+If you need to create a Koii wallet you can follow the instructions [here](https://docs.koii.network/koii-software-toolkit-sdk/using-the-cli#create-a-koii-wallet). Make sure to either copy your keypair path from the output, or use the method above to supply the task CLI with the proper wallet path.
+
+### Deploy to K2
+
+To test the task with the [K2 Settlement Layer](https://docs.koii.network/settlement-layer/k2-tick-tock-fast-blocks) you'll need to deploy it.
+
+We have included our CLI for creating and publish tasks to the K2 network in this repo. Tips on this flow can be found [in the docs](https://docs.koii.network/koii-software-toolkit-sdk/create-task-cli). One important thing to note is when you're presented with the choice of ARWEAVE, IPFS, or DEVELOPMENT you can select DEVELOPMENT and enter `main` in the following prompt. This will tell the task node to look for a `main.js` file in the `dist` folder. You can create this locally by running `yarn webpack`.
+
+## Run a node locally
+
+If you want to get a closer look at the console and test environment variables, you'll want to use the included docker-compose stack to run a task node locally.
+
+1. Link or copy your wallet into the `config` folder as `id.json`
+2. Open `.env-local` and add your TaskID you obtained after deploying to K2 into the `TASKS` environment variable.\
+3. Run `docker compose up` and watch the output of the `task_node`. You can exit this process when your task has finished, or any other time if you have a long running persistent task.
+
+### Redeploying
+
+You do not need to publish your task every time you make modifications. You do however need to restart the `task_node` in order for the latest code to be used. To prepare your code you can run `yarn webpack` to create the bundle. If you have a `task_node` ruinning already, you can exit it and then run `docker compose up` to restart (or start) the node.
+
+### Environment variables
+
+Open the `.env-local` file and make any modifications you need. You can include environment variables that your task expects to be present here, in case you're using [custom secrets](https://docs.koii.network/microservices-and-tasks/task-development-kit-tdk/using-the-task-namespace/keys-and-secrets).

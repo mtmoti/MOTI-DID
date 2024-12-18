@@ -1,0 +1,77 @@
+# Name and metadata of your task
+task_name: 'MOTI TASK'
+author: 'MOTI'
+description: 'Linktree Task'
+repositoryUrl: 'https://gitlab.com/koii-network/moti-bio/'
+imageUrl: 'https://ipfs-gateway.koii.live/ipfs/bafybeieinnyx4oy7mcexubuwgl6ckjj637yzgszvdaohwzyssvzzseil4y/moti.png'
+infoUrl: 'infoUrl'
+
+# network value can be DEVELOPMENT , ARWEAVE or IPFS, Recommended IPFS when deploying to testnet as the cli automatically takes care of uploading the executable with the help of web3.js key
+task_executable_network: 'IPFS'
+
+# Path to your executable webpack if the selected network is IPFS and in case of DEVELOPMENT  name it as main
+task_audit_program: 'dist/main.js'
+
+# Total round time of your task : it must be given in slots and each slot is roughly equal to 408ms
+round_time: 33500
+audit_window: 11500
+submission_window: 11500
+
+# Amounts in KOII
+minimum_stake_amount: 0.1
+
+# task type
+task_type: 'KOII'
+
+## Token Mint Address (ONLY for KPL tasks) ##
+# The Fire Token address is provided as an example.
+token_type: 'FJG2aEPtertCXoedgteCCMmgngSZo1Zd715oNBzR7xpR'
+
+# total_bounty_amount cannot be grater than bounty_amount_per_round
+# total bounty is not accepted in case of update task
+total_bounty_amount: 10
+
+bounty_amount_per_round: 0.01
+
+#Number of times allowed to re-submit the distribution  list in case the distribution list is audited
+allowed_failed_distributions: 1
+
+#Space in MBs for the account size, that holds the task data
+space: 0.1
+
+# Note that the value field in RequirementTag is optional, so it is up to you to include it or not based on your use case.
+# To add more global variables and task variables, please refer the type,value,description format shown below
+requirementsTags:
+  - type: CPU
+    value: '4-core'
+  - type: RAM
+    value: '5 GB'
+  - type: STORAGE
+    value: '5 GB'
+  - type: ADDON
+    value: 'REQUIRE_INTERNET'
+
+tags: ['Storage', 'Database']
+
+# Environment
+# TEST or PRODUCTION
+environment: 'TEST'
+
+# OPTIONAL Only provide the taskId if you are updating the task otherwise leave blank
+task_id: ''
+
+# Provide the description for changes made in new version of task
+migrationDescription: ''
+# Linktree Task
+# ✔ Please select your IPFS preferences:  › Using KOII Storage SDK
+# ✔ Would you like to use your desktop node staking key (/Users/pranavmahindru/Library/Application Support/KOII-Desktop-Node/namespace/pmkoii_stakingWallet.json) to sign this upload to IPFS? … yes
+# ✔ CID of Executable: bafybeieixx4qcqu2fmdgppq6qhbske5wdakkwic6h7omhyxbsd24uh3dve
+# You can access https://ipfs-gateway.koii.live/ipfs/bafybeieixx4qcqu2fmdgppq6qhbske5wdakkwic6h7omhyxbsd24uh3dve/main.js to check your executables.
+# ✔ CID of Metadata: bafybeids66jmnbigpwchais6vdqecmmffztd3ztrt5reh5cjofzm4ykgqm
+# You can access https://ipfs-gateway.koii.live/ipfs/bafybeids66jmnbigpwchais6vdqecmmffztd3ztrt5reh5cjofzm4ykgqm/metadata.json to check your metadata.
+# ✔ Your account will be deducted 16.9689188 KOII for creating the task, which includes the rent exemption(6.9689188 KOII) and bounty amount fees (10 KOII) … yes
+# Calling Create Task
+# ✔ Transaction Confirmed with Signature ZmZixFqNYZXvumg7dwnuucWgMKBahFWFN39z8acBa3UazHXt3Mns9WpMi1NyzTAf2ojPhmPLtmdswA6bxYgyqXk
+# Task Id: DGsH6CGmmgaCB1TcVthB48wRxAgEVE8RCa64ED57UZ8F
+# Stake Pot Account Pubkey: stakepotaccountg8ijiiq1WKN2K4Eqsp7H6S89v7C8
+# Success
