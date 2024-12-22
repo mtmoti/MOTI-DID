@@ -176,7 +176,7 @@ class Linktree {
       // console.log('Distribution List', distributionList);
       return distributionList;
     } catch (err) {
-      console.log('ERROR IN GENERATING DISTRIBUTION LIST', err);
+      console.error('ERROR IN GENERATING DISTRIBUTION LIST', err);
     }
   };
 }

@@ -56,7 +56,7 @@ const main = async (submission_value, round) => {
     if (isNode && isLinktree) return true; // if both are true, return true
     else return false; // if one of them is false, return false
   } catch (error) {
-    console.log('LINKTREE VALIDATE ERROR :::: ', error);
+    console.error('LINKTREE VALIDATE ERROR :::: ', error);
     return false;
   }
 };
@@ -197,8 +197,8 @@ async function verifyLinktrees(proofs_list_object) {
     console.log('******/ verifyLinktrees END /******');
     return allSignaturesValid;
   } catch (error) {
-    console.log('ERROR IN FETCHING OR SOMETHING ELSE', error);
-    console.log('******/ verifyLinktrees END /******');
+    console.error('ERROR IN FETCHING OR SOMETHING ELSE', error);
+    console.error('******/ verifyLinktrees END /******');
     return false;
   }
 }

@@ -8,6 +8,7 @@ const {
   SERVICE_URL,
 } = require('@_koii/namespace-wrapper');
 const { customFsWriteStream } = require('../helpers/customFunction');
+const crypto = require('crypto');
 
 /**
  * @function share
@@ -264,6 +265,7 @@ const shareImage = async nodeUrlList => {
             publicKey: item?.publicKey,
             image: linktree?.image,
             koiiPath: linktree?.koiiImagePath,
+            imageHash: linktree?.imageHash,
           };
         });
         return result.length > 0 ? result : null;
@@ -307,6 +309,7 @@ const shareImage = async nodeUrlList => {
             publicKey: item.issuer,
             image: item.meta.image,
             koiiPath: item.meta.koiiImage,
+            imageHash: null,
           };
         });
 
@@ -331,19 +334,18 @@ const shareImage = async nodeUrlList => {
     ].filter(Boolean);
 
     const imageRes = await Promise.allSettled(
-      combinedList.map(async ({ publicKey, image, koiiPath }) => {
+      combinedList.map(async ({ publicKey, image, koiiPath, imageHash }) => {
         for (const node of nodeUrlList) {
           try {
-            const imagePath = koiiPath;
             const { data } = await axios.get(
               `${node}/task/${TASK_ID}/img/${publicKey}`,
               {
-                params: { imagePath },
+                params: { imagePath: koiiPath },
               },
             );
-            if (data) return { data, koiiPath };
+            if (data) return { data, koiiPath, imageHash };
           } catch (error) {
-            return image ? { data: image, koiiPath } : null;
+            return image ? { data: image, koiiPath, imageHash } : null;
           }
         }
       }),
@@ -358,6 +360,23 @@ const shareImage = async nodeUrlList => {
           const base64Data = e.data.replace(/^data:image\/[\w.]+;base64,/, '');
           const buffer = Buffer.from(base64Data, 'base64');
           const getImageSpecificPath = e.koiiPath.match(/\/img\/(.+)/);
+          if (e.imageHash) {
+            const hash = crypto
+              .createHash('sha256')
+              .update(buffer)
+              .digest('hex');
+
+            if (e.imageHash === hash) {
+              await customFsWriteStream(
+                getImageSpecificPath[0],
+                buffer,
+                '',
+                `/${getImageSpecificPath[1]}`,
+                false,
+                '',
+              );
+            }
+          }
 
           await customFsWriteStream(
             getImageSpecificPath[0],
@@ -365,6 +384,7 @@ const shareImage = async nodeUrlList => {
             '',
             `/${getImageSpecificPath[1]}`,
             false,
+            '',
           );
         } else {
           a++;
@@ -406,10 +426,18 @@ const getNodeUrls = async () => {
       finalUrlList = finalUrlList.sort(() => Math.random() - 0.5).slice(0, 10);
     }
 
+    const activeUrls = [];
+    for (const url of finalUrlList) {
+      const isActive = await isUrlActive(url);
+      if (isActive) {
+        activeUrls.push(url);
+      }
+    }
+
     const results = await Promise.allSettled([
-      share(finalUrlList),
-      shareEndorsement(finalUrlList),
-      shareImage(finalUrlList),
+      share(activeUrls),
+      shareEndorsement(activeUrls),
+      shareImage(activeUrls),
     ]);
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
@@ -493,9 +521,19 @@ const getNodeUrlFromIPAddressList = async () => {
     const urls = Object.values(ip_address_list);
     return urls;
   } catch (error) {
-    console.log('IN THE getNodeUrlFromIPAddressList :: ', error);
+    console.error('IN THE getNodeUrlFromIPAddressList :: ', error);
     return [];
   }
 };
+
+// check the active url
+async function isUrlActive(url) {
+  try {
+    const response = await axios.get(url);
+    return response.status === 200 || response.statusText === 'OK';
+  } catch (error) {
+    return false;
+  }
+}
 
 module.exports = { getNodeUrls };

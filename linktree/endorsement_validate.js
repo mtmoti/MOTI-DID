@@ -57,7 +57,7 @@ const main = async (submission_value, round) => {
     if (isNode && isEndorsement) return true; // if both are true, return true
     else return false; // if one of them is false, return false
   } catch (error) {
-    console.log('Endorsement VALIDATE ERROR :::: ', error);
+    console.error('Endorsement VALIDATE ERROR :::: ', error);
     return false;
   }
 };
@@ -160,8 +160,8 @@ async function verifyEndorsements(proofs_list_object) {
     console.log('******/ verifyEndorsements END /******');
     return allSignaturesValid;
   } catch (error) {
-    console.log('ERROR IN FETCHING OR SOMETHING ELSE', error);
-    console.log('******/ verifyEndorsements END /******');
+    console.error('ERROR IN FETCHING OR SOMETHING ELSE', error);
+    console.error('******/ verifyEndorsements END /******');
     return false;
   }
 }

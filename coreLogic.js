@@ -5,7 +5,7 @@ const Linktree = require('./linktree/linktree');
 const Endorsement = require('./linktree/endorsement');
 // for the storage
 const { KoiiStorageClient } = require('@_koii/storage-task-sdk');
-const { createWriteStream, existsSync, unlinkSync } = require('fs');
+const { writeFileSync, existsSync, unlinkSync } = require('fs');
 const db = require('./database/db_model');
 
 class CoreLogic {
@@ -49,50 +49,44 @@ class CoreLogic {
 
     // update to the ipfs an object of the linktree and Endorsement on KoiiStorageClient
     let fileUploadResponseCID;
+    const path = namespaceWrapper.getBasePath();
+    const proofPath = `${path}/proofs.json`;
+
     try {
       // check if exists then delete the file
-      if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
-        unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+      if (existsSync(proofPath)) {
+        unlinkSync(proofPath);
       }
 
       const gameSalesJson = JSON.stringify(combinedJson, null, 2);
       const buffer = Buffer.from(gameSalesJson, 'utf8');
 
-      // create the path and write a file
-      const writer = createWriteStream(`namespace/${TASK_ID}/proofs.json`);
-      writer.write(buffer);
-      writer.end();
+      writeFileSync(proofPath, buffer);
 
       const client = new KoiiStorageClient(undefined, undefined, true);
       const userStaking = await namespaceWrapper.getSubmitterAccount();
       const fileUploadResponse = await client.uploadFile(
-        `namespace/${TASK_ID}/proofs.json`,
+        proofPath,
         userStaking,
       );
 
       // check if exists then delete it
-      if (existsSync(`namespace/${TASK_ID}/proofs.json`)) {
-        unlinkSync(`namespace/${TASK_ID}/proofs.json`);
+      if (existsSync(proofPath)) {
+        unlinkSync(proofPath);
       }
-
-      console.log('User proof uploaded to IPFS: ', fileUploadResponse.cid);
 
       fileUploadResponseCID = fileUploadResponse.cid;
     } catch (err) {
-      console.log('Error submission_value', err);
+      console.error('Error submission_value', err);
       fileUploadResponseCID = '';
     }
 
     if (fileUploadResponseCID && fileUploadResponseCID.length > 0) {
-      console.log('User proof uploaded to IPFS: ', fileUploadResponseCID);
-
       // store CID in levelDB
       await Promise.all([
         db.setNodeProofCid(roundNumber, fileUploadResponseCID),
         db.setNodeProofCidEndorsement(roundNumber, fileUploadResponseCID),
       ]);
-    } else {
-      console.log('CID NOT FOUND LINKTREE OR Endorsement FOR THE TASK');
     }
     return;
   }
@@ -102,7 +96,7 @@ class CoreLogic {
     try {
       return await this.linktree.generateSubmissionCID(roundNumber);
     } catch (err) {
-      console.log('Error', err);
+      console.error('Error', err);
       return null;
     }
   }
@@ -110,7 +104,7 @@ class CoreLogic {
     try {
       return await this.endorsement.generateSubmissionCID(roundNumber);
     } catch (err) {
-      console.log('Error', err);
+      console.error('Error', err);
       return null;
     }
   }
@@ -118,12 +112,11 @@ class CoreLogic {
     console.log('================ submitTask start ================');
     console.log('submitTask called with round', roundNumber);
     try {
-      console.log('inside try');
-      console.log(
-        await namespaceWrapper.getSlot(),
-        'current slot while calling submit',
-      );
-
+      // console.log('inside try');
+      // console.log(
+      //   await namespaceWrapper.getSlot(),
+      //   'current slot while calling submit',
+      // );
       const submissionPromise = this.fetchSubmission(roundNumber);
       const submissionEndorsementPromise =
         this.fetchSubmissionEndorsement(roundNumber);
@@ -133,8 +126,8 @@ class CoreLogic {
         submissionEndorsementPromise,
       ]);
 
-      console.log('submission::::: ', submission);
-      console.log('submissionEndorsement::::: ', submissionEndorsement);
+      // console.log('submission::::: ', submission);
+      // console.log('submissionEndorsement::::: ', submissionEndorsement);
 
       if (!submission && !submissionEndorsement) return;
 
@@ -155,8 +148,8 @@ class CoreLogic {
       console.log('after the submission call');
       console.log('================ submitTask end ================');
     } catch (error) {
-      console.log('error in submission', error);
-      console.log('================ submitTask end ================');
+      console.error('error in submission', error);
+      console.error('================ submitTask end ================');
     }
   }
 
@@ -165,16 +158,16 @@ class CoreLogic {
     console.log('================ validateNode start ================');
     let vote;
     try {
-      console.log('validateNode: ', submission_value, ' :: ', round);
+      // console.log('validateNode: ', submission_value, ' :: ', round);
       vote = await this.linktree.validateSubmissionCID(submission_value, round);
     } catch (e) {
       console.error(e);
       vote = false;
     }
-    console.log(
-      '================ validateNode end vote ================',
-      vote,
-    );
+    // console.log(
+    //   '================ validateNode end vote ================',
+    //   vote,
+    // );
     return vote;
   };
   validateNodeEndorsement = async (submission_value, round) => {
@@ -183,7 +176,7 @@ class CoreLogic {
     );
     let vote;
     try {
-      console.log('validateNodeEndorsement: ', submission_value, ' :: ', round);
+      // console.log('validateNodeEndorsement: ', submission_value, ' :: ', round);
       vote = await this.endorsement.validateSubmissionCID(
         submission_value,
         round,
@@ -192,10 +185,10 @@ class CoreLogic {
       console.error(e);
       vote = false;
     }
-    console.log(
-      '================ validateNodeEndorsement end vote ================',
-      vote,
-    );
+    // console.log(
+    //   '================ validateNodeEndorsement end vote ================',
+    //   vote,
+    // );
     return vote;
   };
   async auditTask(roundNumber) {
@@ -241,14 +234,14 @@ class CoreLogic {
         distributionList,
         round,
       );
-      console.log('DECIDER', decider);
+      // console.log('DECIDER', decider);
       if (decider) {
         const response =
           await namespaceWrapper.distributionListSubmissionOnChain(round);
         console.log('RESPONSE FROM DISTRIBUTION LIST', response);
       }
     } catch (err) {
-      console.log('ERROR IN SUBMIT DISTRIBUTION', err);
+      console.error('ERROR IN SUBMIT DISTRIBUTION', err);
     }
   }
   async shallowEqual(parsed, generateDistributionList) {
@@ -316,7 +309,7 @@ class CoreLogic {
       console.log('RESULT', result);
       return result;
     } catch (err) {
-      console.log('ERROR IN VALIDATING DISTRIBUTION', err);
+      console.error('ERROR IN VALIDATING DISTRIBUTION', err);
       return true;
     }
   };

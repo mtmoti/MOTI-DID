@@ -46,7 +46,7 @@ const main = async () => {
     };
     return submission_value;
   } catch (error) {
-    console.log('main ::: Error submission_value Endorsement', error);
+    console.error('main ::: Error submission_value Endorsement', error);
     return {};
   }
 };

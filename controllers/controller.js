@@ -158,7 +158,7 @@ let createLinkTree = async (req, res) => {
       .status(200)
       .send({ message: 'Proof and linktree registered successfully' });
   } catch (e) {
-    console.log(e);
+    console.error(e);
   }
 };
 // get all LinkTrees
@@ -626,21 +626,25 @@ let getImage = async (req, res) => {
 let postImage = async (req, res) => {
   try {
     const previousImagePath = req.body.previousImagePath;
+    const ipfsURL = req.body.ipfsURL;
+
+    // convert image Data into buffer
     const imageData = req.body.imageData;
-    // replace data:image
     const base64Data = imageData.replace(/^data:image\/[\w.]+;base64,/, '');
-    // get the buffer of base64
     const buffer = Buffer.from(base64Data, 'base64');
-    // get the match and update it and remove the . if present
     const matches = imageData.match(/^data:image\/([\w.]+);base64,/);
     if (matches && matches[1]) {
       matches[1] = matches[1].replace('.', '');
     }
     const extension = matches ? matches[1] : null;
+
+    // give me the path and name of the file
     const fileName = `/${req.params.publicKey}.${extension}`;
     const imagePath = `/img/${req.params.publicKey}.${extension}`;
 
     let getImageObject;
+
+    // checking if the public key is empty
     if (
       req.params.publicKey === '' ||
       req.params.publicKey === null ||
@@ -651,10 +655,10 @@ let postImage = async (req, res) => {
         previousImagePath === null ||
         previousImagePath === undefined
       ) {
-        return res.status(200).json({ getImage: null });
+        return res.status(400).json({ getImage: null });
       }
 
-      return res.status(200).json({ getImage: previousImagePath });
+      return res.status(400).json({ getImage: null });
     }
 
     if (
@@ -668,6 +672,7 @@ let postImage = async (req, res) => {
         '',
         fileName,
         true,
+        ipfsURL,
       );
     } else {
       getImageObject = await customFsWriteStream(
@@ -676,6 +681,7 @@ let postImage = async (req, res) => {
         previousImagePath,
         fileName,
         true,
+        ipfsURL,
       );
     }
 
@@ -1314,7 +1320,7 @@ let createPendingProfile = async (req, res) => {
       .status(200)
       .send({ message: 'Proof and linktree registered successfully' });
   } catch (e) {
-    console.log(e);
+    console.error(e);
     return res.status(500).send({ message: 'Internal Server Error' });
   }
 };

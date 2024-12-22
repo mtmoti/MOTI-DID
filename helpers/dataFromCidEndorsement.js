@@ -30,9 +30,9 @@ module.exports = async cid => {
       return getData.endorsement;
     }
   } catch (error) {
-    console.log('DATA FROM CID IS GIVING ERROR: ', error);
-    console.log('VOTE FALSE');
-    console.log('SLASH VOTE DUE TO FAKE VALUE');
+    console.error('DATA FROM CID IS GIVING ERROR: ', error);
+    console.error('VOTE FALSE');
+    console.error('SLASH VOTE DUE TO FAKE VALUE');
     return {};
   }
 };
